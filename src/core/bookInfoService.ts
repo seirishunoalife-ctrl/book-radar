@@ -1,5 +1,5 @@
 import type { BookInfo } from "../adapters/bookMetadataProvider.js";
-import { RakutenBooksClient } from "../adapters/rakutenBooksClient.js";
+import { RakutenBooksClient, type AuthorSearchPage } from "../adapters/rakutenBooksClient.js";
 import { OpenBdClient } from "../adapters/openBdClient.js";
 
 /**
@@ -7,7 +7,7 @@ import { OpenBdClient } from "../adapters/openBdClient.js";
  * openBDにフォールバックする。詳細な比較は book-metadata-research.md を参照。
  */
 export async function fetchBookInfo(isbn: string): Promise<BookInfo | null> {
-  if (process.env.RAKUTEN_APP_ID) {
+  if (process.env.RAKUTEN_APP_ID && process.env.RAKUTEN_APP_SECRET) {
     const rakutenInfo = await new RakutenBooksClient().fetchByIsbn(isbn);
     if (rakutenInfo) return rakutenInfo;
   }
@@ -20,10 +20,21 @@ export async function fetchBookInfo(isbn: string): Promise<BookInfo | null> {
  * RAKUTEN_APP_ID未設定の場合は分かりやすいエラーを投げる。
  */
 export async function searchBookInfoByTitle(keyword: string): Promise<BookInfo[]> {
-  if (!process.env.RAKUTEN_APP_ID) {
+  return requireRakutenClient("タイトル検索").searchByTitle(keyword);
+}
+
+/**
+ * 著者名検索・1ページ分(新刊検知用)。発売日の新しい順で返る。楽天ブックスAPIのみ対応。
+ */
+export async function searchBookInfoByAuthorPage(name: string, page: number): Promise<AuthorSearchPage> {
+  return requireRakutenClient("著者名検索").searchByAuthorPage(name, page);
+}
+
+function requireRakutenClient(featureName: string): RakutenBooksClient {
+  if (!process.env.RAKUTEN_APP_ID || !process.env.RAKUTEN_APP_SECRET) {
     throw new Error(
-      "タイトル検索には楽天ブックスAPIのRAKUTEN_APP_IDが必要です(library/.envに設定してください)。openBDはISBN検索のみ対応しています。",
+      `${featureName}には楽天ブックスAPIのRAKUTEN_APP_ID/RAKUTEN_APP_SECRETが必要です(library/.envに設定してください)。openBDはISBN検索のみ対応しています。`,
     );
   }
-  return new RakutenBooksClient().searchByTitle(keyword);
+  return new RakutenBooksClient();
 }

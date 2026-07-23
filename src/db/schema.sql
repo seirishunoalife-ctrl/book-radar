@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS authors (
   user_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id),
   name TEXT NOT NULL,
   rakuten_search_keyword TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(user_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS books (

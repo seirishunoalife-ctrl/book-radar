@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "check-isbn": "tsx src/cli/checkIsbn.ts",
-    "search-title": "tsx src/cli/searchTitle.ts"
+    "search-title": "tsx src/cli/searchTitle.ts",
+    "add-author": "tsx src/cli/addAuthor.ts",
+    "check-new-releases": "tsx src/cli/checkNewReleases.ts",
+    "author-books": "tsx src/cli/authorBooks.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5"

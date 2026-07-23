@@ -21,13 +21,13 @@ export interface CheckBookResult {
  */
 export async function checkBook(
   isbn: string,
-  options: { title?: string; adapter?: LibraryAdapter } = {},
+  options: { title?: string; adapter?: LibraryAdapter; authorId?: number } = {},
 ): Promise<CheckBookResult> {
   const db = getDb();
   const adapter = options.adapter ?? new CalilLibraryAdapter();
 
   const [bookInfo, holdings] = await Promise.all([fetchBookInfo(isbn), adapter.searchByIsbn(isbn)]);
-  const bookId = upsertBook(db, isbn, bookInfo, options.title);
+  const bookId = upsertBook(db, isbn, bookInfo, options.title, options.authorId);
 
   if (holdings.length === 0) {
     for (const branch of getAllBranches(db)) {
@@ -52,15 +52,18 @@ function upsertBook(
   isbn: string,
   bookInfo: BookInfo | null,
   titleOverride: string | undefined,
+  authorId: number | undefined,
 ): number {
   const title = bookInfo?.title ?? titleOverride ?? `(タイトル未取得: ${isbn})`;
   const existing = db.prepare("SELECT id FROM books WHERE isbn13 = ?").get(isbn) as { id: number } | undefined;
 
   if (existing) {
+    // author_id は指定が無い限り既存値を維持する(手動ISBNチェックでは作家未登録のまま使えるようにするため)
     db.prepare(
       `UPDATE books SET
          title = ?, author_name = ?, series_name = ?, publisher = ?, release_date = ?,
-         cover_image_url = ?, rakuten_item_url = ?, metadata_source = ?, metadata_fetched_at = datetime('now')
+         cover_image_url = ?, rakuten_item_url = ?, metadata_source = ?, metadata_fetched_at = datetime('now'),
+         author_id = COALESCE(?, author_id)
        WHERE id = ?`,
     ).run(
       title,
@@ -71,6 +74,7 @@ function upsertBook(
       bookInfo?.coverImageUrl ?? null,
       bookInfo?.rakutenItemUrl ?? null,
       bookInfo?.source ?? null,
+      authorId ?? null,
       existing.id,
     );
     return existing.id;
@@ -79,8 +83,8 @@ function upsertBook(
   const result = db
     .prepare(
       `INSERT INTO books
-         (isbn13, title, author_name, series_name, publisher, release_date, cover_image_url, rakuten_item_url, metadata_source, metadata_fetched_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+         (isbn13, title, author_name, series_name, publisher, release_date, cover_image_url, rakuten_item_url, metadata_source, metadata_fetched_at, author_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
     )
     .run(
       isbn,
@@ -92,6 +96,7 @@ function upsertBook(
       bookInfo?.coverImageUrl ?? null,
       bookInfo?.rakutenItemUrl ?? null,
       bookInfo?.source ?? null,
+      authorId ?? null,
     );
   return Number(result.lastInsertRowid);
 }
