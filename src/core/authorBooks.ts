@@ -4,6 +4,7 @@ import { getAuthorByName, type Author } from "./authorService.js";
 export interface BookHolding {
   branchName: string;
   statusLabel: string;
+  reserveUrl: string | null;
 }
 
 export interface AuthorBook {
@@ -73,17 +74,21 @@ export function getAuthorBooks(authorName: string, limit = 10): AuthorBooksResul
   const books: AuthorBook[] = bookRows.map((row) => {
     const holdingRows = db
       .prepare(
-        `SELECT lb.name as branch_name, lh.status
+        `SELECT lb.name as branch_name, lh.status, lh.opac_reserve_url
          FROM library_holdings lh
          JOIN library_branches lb ON lb.id = lh.branch_id
          WHERE lh.book_id = ?
          ORDER BY lb.id`,
       )
-      .all(row.id) as { branch_name: string; status: string }[];
+      .all(row.id) as { branch_name: string; status: string; opac_reserve_url: string | null }[];
 
     const isHeldSomewhere = holdingRows.some((h) => h.status !== "蔵書なし");
     const holdings: BookHolding[] = isHeldSomewhere
-      ? holdingRows.map((h) => ({ branchName: h.branch_name, statusLabel: toStatusLabel(h.status) }))
+      ? holdingRows.map((h) => ({
+          branchName: h.branch_name,
+          statusLabel: toStatusLabel(h.status),
+          reserveUrl: h.opac_reserve_url,
+        }))
       : [];
 
     return {
