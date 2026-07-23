@@ -1,0 +1,19 @@
+{
+  "name": "book-radar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "お気に入り作家の新刊が宇部市立図書館(本館/学くすのき)に入荷したタイミングを通知するアプリ",
+  "type": "module",
+  "scripts": {
+    "check-isbn": "tsx src/cli/checkIsbn.ts",
+    "search-title": "tsx src/cli/searchTitle.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
