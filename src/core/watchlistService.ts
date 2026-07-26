@@ -14,12 +14,15 @@ export interface WatchlistBook {
 
 /**
  * 本をウォッチリストに追加する。作家登録とは別に、個別の本を単体で追跡するための機能。
- * 書誌情報・蔵書状況が未取得の場合はここで取得する(checkBookは冪等なので、既に取得済みでも
- * 最新の蔵書状況に更新される)。
+ * 既にDBに書誌情報がある本(一覧・詳細ページで一度でも表示済みの本)は、楽天API/カーリルAPIへの
+ * 再アクセスをせず、既存のbookIdをそのまま使う(登録操作は保存だけの軽い処理にするため)。
+ * DBに無い本(検索結果から直接登録した初回のみ)はcheckBookで新規取得する。
  */
 export async function addToWatchlist(isbn: string): Promise<{ bookId: number }> {
-  const { bookId } = await checkBook(isbn);
   const db = getDb();
+  const existing = db.prepare("SELECT id FROM books WHERE isbn13 = ?").get(isbn) as { id: number } | undefined;
+  const bookId = existing ? existing.id : (await checkBook(isbn)).bookId;
+
   db.prepare("INSERT OR IGNORE INTO watchlist (book_id) VALUES (?)").run(bookId);
   return { bookId };
 }
