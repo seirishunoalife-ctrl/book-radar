@@ -34,6 +34,8 @@ export interface AuthorSearchPage {
   items: BookInfo[];
   page: number;
   pageCount: number;
+  /** 検索条件に一致した総件数(全ページ合計) */
+  count: number;
 }
 
 /**
@@ -65,15 +67,15 @@ export class RakutenBooksClient implements TitleSearchableProvider {
    * マッチングは楽天側の検索に任せ、こちらでの表記ゆれ吸収(あいまい一致)は行わない。
    */
   async searchByAuthorPage(name: string, page: number): Promise<AuthorSearchPage> {
-    const { items, pageCount } = await this.search({ author: name, sort: "-releaseDate" }, 30, page);
-    return { items: items.map(toBookInfo), page, pageCount };
+    const { items, pageCount, count } = await this.search({ author: name, sort: "-releaseDate" }, 30, page);
+    return { items: items.map(toBookInfo), page, pageCount, count };
   }
 
   private async search(
     query: Record<string, string>,
     hits = 10,
     page = 1,
-  ): Promise<{ items: RakutenBookItem[]; pageCount: number }> {
+  ): Promise<{ items: RakutenBookItem[]; pageCount: number; count: number }> {
     const url = new URL(SEARCH_URL);
     url.searchParams.set("applicationId", this.applicationId);
     url.searchParams.set("accessKey", this.accessKey);
@@ -107,7 +109,7 @@ export class RakutenBooksClient implements TitleSearchableProvider {
     const data = (await res.json()) as RakutenSearchResponse;
     const entries = data.Items ?? data.items ?? [];
     const items = entries.map((entry) => ("Item" in entry ? entry.Item : entry));
-    return { items, pageCount: data.pageCount ?? 1 };
+    return { items, pageCount: data.pageCount ?? 1, count: data.count ?? items.length };
   }
 }
 

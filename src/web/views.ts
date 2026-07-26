@@ -2,6 +2,7 @@ import type { Author } from "../core/authorService.js";
 import type { AuthorBooksResult } from "../core/authorBooks.js";
 import type { CheckBookResult } from "../core/checkBook.js";
 import type { BookInfo } from "../adapters/bookMetadataProvider.js";
+import type { AuthorSearchPage } from "../adapters/rakutenBooksClient.js";
 
 export function escapeHtml(value: string): string {
   return value
@@ -20,6 +21,9 @@ const STYLE = `
   form.search input { flex: 1; padding: 0.3rem; }
   ul.authors { list-style: none; padding: 0; }
   ul.authors li { margin-bottom: 0.3rem; }
+  form.register { margin-top: 1rem; }
+  button.register-btn { padding: 0.4rem 1rem; }
+  .already-registered { color: #2a7a2a; }
   .book { display: flex; gap: 1rem; border-bottom: 1px solid #ddd; padding: 0.75rem 0; }
   .book img { width: 80px; height: auto; flex-shrink: 0; }
   .book .meta { flex: 1; }
@@ -51,13 +55,13 @@ ${body}
 function searchForms(): string {
   return `
 <nav>
-  <form class="search" action="/isbn" method="get">
-    <input type="text" name="isbn" placeholder="ISBNで検索" required>
-    <button type="submit">ISBN検索</button>
-  </form>
   <form class="search" action="/search" method="get">
     <input type="text" name="q" placeholder="タイトルの一部で検索" required>
     <button type="submit">タイトル検索</button>
+  </form>
+  <form class="search" action="/author-search" method="get">
+    <input type="text" name="name" placeholder="作家名で検索" required>
+    <button type="submit">作家名で検索</button>
   </form>
 </nav>`;
 }
@@ -176,6 +180,54 @@ export function renderTitleSearchPage(keyword: string, results: BookInfo[]): str
 ${searchForms()}
 <h2>「${escapeHtml(keyword)}」の検索結果</h2>
 ${body}
+`,
+  );
+}
+
+const REPRESENTATIVE_TITLES_COUNT = 5;
+
+export function renderAuthorSearchPage(
+  name: string,
+  page: AuthorSearchPage,
+  alreadyRegisteredAuthor: Author | null,
+): string {
+  if (alreadyRegisteredAuthor) {
+    return layout(
+      "作家名で検索",
+      `
+${searchForms()}
+<h2>「${escapeHtml(name)}」の検索結果</h2>
+<p class="already-registered">登録済みです。</p>
+<p><a href="/author?name=${encodeURIComponent(alreadyRegisteredAuthor.name)}">${escapeHtml(alreadyRegisteredAuthor.name)}の本棚を見る</a></p>
+`,
+    );
+  }
+
+  if (page.count === 0) {
+    return layout(
+      "作家名で検索",
+      `
+${searchForms()}
+<h2>「${escapeHtml(name)}」の検索結果</h2>
+<p>楽天ブックスAPIで書籍が見つかりませんでした。</p>
+`,
+    );
+  }
+
+  const sample = page.items.slice(0, REPRESENTATIVE_TITLES_COUNT);
+  const sampleList = sample.map((book) => `<li>${escapeHtml(book.title)}(${escapeHtml(book.releaseDate ?? "発売日不明")})</li>`).join("");
+
+  return layout(
+    "作家名で検索",
+    `
+${searchForms()}
+<h2>「${escapeHtml(name)}」の検索結果</h2>
+<p>${page.count}件の書籍が見つかりました。代表的な本:</p>
+<ul>${sampleList}</ul>
+<form class="register" action="/authors" method="post">
+  <input type="hidden" name="name" value="${escapeHtml(name)}">
+  <button type="submit" class="register-btn">この作家を登録する</button>
+</form>
 `,
   );
 }
