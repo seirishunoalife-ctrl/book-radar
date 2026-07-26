@@ -46,6 +46,11 @@ function migrate(db: DatabaseSync): void {
   if (!recommendationColumns.some((c) => c.name === "category")) {
     db.exec("ALTER TABLE recommendations ADD COLUMN category TEXT NOT NULL DEFAULT 'fiction'");
   }
+
+  const preferencesColumns = db.prepare("PRAGMA table_info(preferences)").all() as { name: string }[];
+  if (!preferencesColumns.some((c) => c.name === "notes")) {
+    db.exec("ALTER TABLE preferences ADD COLUMN notes TEXT NOT NULL DEFAULT '[]'");
+  }
 }
 
 function seed(db: DatabaseSync): void {

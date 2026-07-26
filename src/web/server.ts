@@ -153,6 +153,7 @@ const server = createServer(async (req, res) => {
         favoriteGenreIds: form.getAll("genreIds"),
         favoriteAuthors: parseLines(form.get("authors") ?? ""),
         businessThemes: parseLines(form.get("themes") ?? ""),
+        notes: parseLines(form.get("notes") ?? ""),
       });
       res.writeHead(302, { Location: "/preferences?saved=1" });
       res.end();

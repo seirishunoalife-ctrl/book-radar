@@ -432,6 +432,11 @@ ${saved ? `<p class="saved-notice">保存しました。</p>` : ""}
     <legend>ビジネス書のテーマ(1行に1件)</legend>
     <textarea name="themes" rows="3" placeholder="例:&#10;マネジメント&#10;マーケティング">${escapeHtml(prefs.businessThemes.join("\n"))}</textarea>
   </fieldset>
+  <fieldset>
+    <legend>備考(おすすめ本探しの参考にする自由記述、1行に1件)</legend>
+    <textarea name="notes" rows="3" placeholder="例:&#10;短編集&#10;泣ける話">${escapeHtml(prefs.notes.join("\n"))}</textarea>
+    <p class="hint">タイトルのキーワード検索に使われます(文章より単語の方が見つかりやすいです)。</p>
+  </fieldset>
   <button type="submit" class="save-btn">保存する</button>
 </form>
 `,

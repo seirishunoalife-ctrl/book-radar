@@ -1,7 +1,13 @@
 import { getDb } from "../db/index.js";
 import { getPreferences } from "./preferencesService.js";
 import { searchBookInfoForRecommendation } from "./bookInfoService.js";
-import { GENRE_CATALOG, genreNameById, genreCategoryById, type RecommendationCategory } from "./genreCatalog.js";
+import {
+  GENRE_CATALOG,
+  genreNameById,
+  genreCategoryById,
+  categorizeByGenreId,
+  type RecommendationCategory,
+} from "./genreCatalog.js";
 import { findMatchingAward } from "./awardsService.js";
 import type { BookInfo } from "../adapters/bookMetadataProvider.js";
 
@@ -130,8 +136,9 @@ export async function generateRecommendations(): Promise<RecommendedBook[]> {
   const genreIds = [...new Set([...prefs.favoriteGenreIds, ...frequentGenreIds])].slice(0, 6);
   const authors = [...new Set([...prefs.favoriteAuthors, ...frequentAuthors])].slice(0, 6);
   const themes = prefs.businessThemes.slice(0, 3);
+  const notes = prefs.notes.slice(0, 3);
 
-  if (genreIds.length === 0 && authors.length === 0 && themes.length === 0) {
+  if (genreIds.length === 0 && authors.length === 0 && themes.length === 0 && notes.length === 0) {
     setCachedRecommendations([]);
     return [];
   }
@@ -150,6 +157,11 @@ export async function generateRecommendations(): Promise<RecommendedBook[]> {
   }
   for (const theme of themes) {
     await collectFromQuery({ title: theme }, `テーマ: ${theme}`, "business", candidates);
+  }
+  for (const note of notes) {
+    // 備考欄はジャンル・小説/ビジネス書のどちらを指しているか分からないため、検索結果の
+    // 本自体が実際に属するジャンルIDからカテゴリを推定する(検索条件からは決め打ちしない)。
+    await collectFromQuery({ title: note }, `備考: ${note}`, "auto", candidates);
   }
 
   const excludeIsbns = getWatchlistIsbns();
@@ -190,7 +202,7 @@ export async function generateRecommendations(): Promise<RecommendedBook[]> {
 async function collectFromQuery(
   query: Record<string, string>,
   reason: string,
-  category: RecommendationCategory,
+  category: RecommendationCategory | "auto",
   out: Candidate[],
 ): Promise<void> {
   try {
@@ -205,8 +217,9 @@ async function collectFromQuery(
         ? `受賞: ${award.awardName}${award.awardYear ? award.awardYear : ""}${award.rankLabel ? ` ${award.rankLabel}` : ""}`
         : reason;
       const priority = award ? 2 : isRecent(info.releaseDate) ? 1 : 0;
+      const resolvedCategory = category === "auto" ? categorizeByGenreId(info.genreId) : category;
 
-      out.push({ info, reason: finalReason, category, priority });
+      out.push({ info, reason: finalReason, category: resolvedCategory, priority });
     }
   } catch (error) {
     console.error(`おすすめ本の検索に失敗しました(条件: ${JSON.stringify(query)}):`, error instanceof Error ? error.message : error);

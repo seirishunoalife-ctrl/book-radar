@@ -38,3 +38,19 @@ export function genreNameById(id: string): string {
 export function genreCategoryById(id: string): RecommendationCategory {
   return GENRE_CATALOG.find((g) => g.id === id)?.category ?? "fiction";
 }
+
+/**
+ * 楽天ブックスAPIが返す実際のbooksGenreId(複数分類は"/"区切り)から、キュレーション済み
+ * ジャンル一覧に前方一致するものを探してカテゴリを推定する。一致が無ければ"fiction"扱い。
+ * 検索条件だけからはカテゴリが分からない場合(例: 備考欄の自由記述検索)に使う。
+ */
+export function categorizeByGenreId(booksGenreId: string | null): RecommendationCategory {
+  if (!booksGenreId) return "fiction";
+  const paths = booksGenreId.split("/");
+  for (const path of paths) {
+    for (const genre of GENRE_CATALOG) {
+      if (path.startsWith(genre.id)) return genre.category;
+    }
+  }
+  return "fiction";
+}

@@ -76,10 +76,11 @@ CREATE TABLE IF NOT EXISTS watchlist (
 CREATE TABLE IF NOT EXISTS preferences (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id),
-  -- 以下3つはJSON配列文字列(例: ["001004001","001006"])として保持する
+  -- 以下4つはJSON配列文字列(例: ["001004001","001006"])として保持する
   favorite_genre_ids TEXT NOT NULL DEFAULT '[]',
   favorite_authors TEXT NOT NULL DEFAULT '[]',
   business_themes TEXT NOT NULL DEFAULT '[]',
+  notes TEXT NOT NULL DEFAULT '[]',
   updated_at TEXT DEFAULT (datetime('now')),
   UNIQUE(user_id)
 );
