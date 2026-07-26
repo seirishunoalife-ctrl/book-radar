@@ -7,6 +7,7 @@ interface GoogleVolumeInfo {
   authors?: string[];
   publisher?: string;
   publishedDate?: string;
+  description?: string;
   industryIdentifiers?: { type: string; identifier: string }[];
   imageLinks?: {
     smallThumbnail?: string;
@@ -98,6 +99,7 @@ function toBookInfo(info: GoogleVolumeInfo): BookInfo {
       "https:",
     ) ?? null,
     rakutenItemUrl: info.infoLink ?? null,
+    itemCaption: info.description ?? null,
     source: "googlebooks",
   };
 }

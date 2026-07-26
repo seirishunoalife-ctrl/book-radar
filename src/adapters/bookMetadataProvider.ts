@@ -10,6 +10,8 @@ export interface BookInfo {
   releaseDate: string | null;
   coverImageUrl: string | null;
   rakutenItemUrl: string | null;
+  /** あらすじ・紹介文。楽天ブックスAPIのitemCaptionのみ対応(openBDは非対応で常にnull)。 */
+  itemCaption: string | null;
   source: MetadataSource;
 }
 

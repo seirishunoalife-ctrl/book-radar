@@ -47,6 +47,7 @@ function toBookInfo(summary: OpenBdSummary): BookInfo {
     releaseDate: summary.pubdate || null,
     coverImageUrl: summary.cover || null,
     rakutenItemUrl: null,
+    itemCaption: null,
     source: "openbd",
   };
 }

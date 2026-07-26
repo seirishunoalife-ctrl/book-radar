@@ -18,9 +18,21 @@ export function getDb(): DatabaseSync {
   const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
   db.exec(schema);
 
+  migrate(db);
   seed(db);
 
   return db;
+}
+
+/**
+ * schema.sqlのCREATE TABLE IF NOT EXISTSは既存テーブルへの列追加を反映しないため、
+ * 後から追加したカラムはここでALTER TABLEする(簡易マイグレーション)。
+ */
+function migrate(db: DatabaseSync): void {
+  const columns = db.prepare("PRAGMA table_info(books)").all() as { name: string }[];
+  if (!columns.some((c) => c.name === "item_caption")) {
+    db.exec("ALTER TABLE books ADD COLUMN item_caption TEXT");
+  }
 }
 
 function seed(db: DatabaseSync): void {

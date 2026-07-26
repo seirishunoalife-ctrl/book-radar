@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS books (
   release_date TEXT,
   cover_image_url TEXT,
   rakuten_item_url TEXT,
+  item_caption TEXT,
   metadata_source TEXT,
   metadata_fetched_at TEXT,
   created_at TEXT DEFAULT (datetime('now'))

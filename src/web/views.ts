@@ -42,6 +42,12 @@ const STYLE = `
   .more-link { display: inline-block; margin-top: 1rem; }
   .hint { color: #666; font-size: 0.9rem; }
   .error { color: #b00; }
+  .book .title a { color: inherit; text-decoration: none; }
+  .book .title a:hover { text-decoration: underline; }
+  .book-detail { display: flex; gap: 1.2rem; margin-bottom: 1rem; }
+  .book-detail img { width: 160px; height: auto; flex-shrink: 0; }
+  .book-detail .meta > div { margin-bottom: 0.3rem; }
+  .caption { white-space: pre-wrap; background: #f7f7f7; padding: 0.75rem; border-radius: 4px; margin: 1rem 0; }
 `;
 
 function layout(title: string, body: string): string {
@@ -77,6 +83,12 @@ function statusClass(label: string): string {
   if (label === "未入荷") return "none";
   if (label === "貸出中") return "loan";
   return "ok";
+}
+
+/** 本の詳細ページ(/isbn)へのリンク付きタイトル。一覧(本棚・検索結果・気になる本)で共通に使う。 */
+function bookTitleLink(isbn13: string, title: string): string {
+  if (!isbn13) return escapeHtml(title);
+  return `<a href="/isbn?isbn=${encodeURIComponent(isbn13)}">${escapeHtml(title)}</a>`;
 }
 
 function renderHoldings(holdings: { branchName: string; statusLabel: string; reserveUrl: string | null }[]): string {
@@ -116,9 +128,9 @@ function renderTrackToggle(isbn: string, bookId: number | null, isTracked: boole
 function renderWatchlistItem(book: WatchlistBook): string {
   return `
 <div class="book">
-  ${book.coverImageUrl ? `<img src="${escapeHtml(book.coverImageUrl)}" alt="">` : ""}
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
   <div class="meta">
-    <div class="title">${escapeHtml(book.title)}</div>
+    <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     ${renderHoldings(book.holdings)}
     ${renderTrackToggle(book.isbn13, book.bookId, true)}
@@ -163,9 +175,9 @@ export function renderAuthorPage(result: AuthorBooksResult, trackedBookIds: Set<
           .map(
             (book) => `
 <div class="book">
-  ${book.coverImageUrl ? `<img src="${escapeHtml(book.coverImageUrl)}" alt="">` : ""}
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
   <div class="meta">
-    <div class="title">${escapeHtml(book.title)}</div>
+    <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     ${renderHoldings(book.holdings)}
     ${renderTrackToggle(book.isbn13, book.bookId, trackedBookIds.has(book.bookId), returnTo)}
@@ -201,23 +213,32 @@ ${unregisterForm}
 export function renderIsbnPage(result: CheckBookResult, isTracked: boolean): string {
   const info = result.bookInfo;
   const returnTo = `/isbn?isbn=${encodeURIComponent(result.isbn)}`;
-  const body = `
-<div class="book">
+  const title = info?.title ?? `(タイトル不明: ${result.isbn})`;
+
+  const detail = `
+<div class="book-detail">
   ${info?.coverImageUrl ? `<img src="${escapeHtml(info.coverImageUrl)}" alt="">` : ""}
   <div class="meta">
-    <div class="title">${escapeHtml(info?.title ?? `(タイトル不明: ${result.isbn})`)}</div>
-    <div>${escapeHtml(info?.authorName ?? "著者不明")} / ${escapeHtml(info?.publisher ?? "出版社不明")} / ${escapeHtml(info?.releaseDate ?? "発売日不明")}</div>
+    <div>${escapeHtml(info?.authorName ?? "著者不明")}</div>
+    <div>${escapeHtml(info?.publisher ?? "出版社不明")} / ${escapeHtml(info?.releaseDate ?? "発売日不明")}</div>
     <div>ISBN: ${escapeHtml(result.isbn)}</div>
-    ${renderHoldings(result.holdings.map((h) => ({ branchName: h.branchCode, statusLabel: h.status ?? "未確認", reserveUrl: h.reserveUrl })))}
-    ${renderTrackToggle(result.isbn, result.bookId, isTracked, returnTo)}
   </div>
 </div>`;
 
+  const caption = info?.itemCaption ? `<p class="caption">${escapeHtml(info.itemCaption)}</p>` : "";
+
+  const body = `
+${detail}
+${caption}
+${renderHoldings(result.holdings.map((h) => ({ branchName: h.branchCode, statusLabel: h.status ?? "未確認", reserveUrl: h.reserveUrl })))}
+${renderTrackToggle(result.isbn, result.bookId, isTracked, returnTo)}
+`;
+
   return layout(
-    "ISBN検索結果",
+    title,
     `
 ${searchForms()}
-<h2>ISBN検索結果</h2>
+<h2>${escapeHtml(title)}</h2>
 ${body}
 `,
   );
@@ -234,11 +255,11 @@ export function renderTitleSearchPage(keyword: string, page: TitleSearchPage): s
           .map(
             (book) => `
 <div class="book">
-  ${book.coverImageUrl ? `<img src="${escapeHtml(book.coverImageUrl)}" alt="">` : ""}
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
   <div class="meta">
-    <div class="title">${escapeHtml(book.title)}</div>
+    <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.authorName ?? "著者不明")} / ${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
-    <div><a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}">この本の貸出状況を見る(ISBN: ${escapeHtml(book.isbn13)})</a></div>
+    <div>ISBN: ${escapeHtml(book.isbn13)}</div>
     ${book.isbn13 ? renderTrackToggle(book.isbn13, null, false) : ""}
   </div>
 </div>`,

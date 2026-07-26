@@ -13,6 +13,7 @@ interface RakutenBookItem {
   authorKana?: string;
   publisherName?: string;
   isbn?: string;
+  /** あらすじ・紹介文 */
   itemCaption?: string;
   salesDate?: string;
   itemUrl?: string;
@@ -170,6 +171,7 @@ function toBookInfo(item: RakutenBookItem): BookInfo {
     releaseDate: item.salesDate ?? null,
     coverImageUrl: item.largeImageUrl || item.mediumImageUrl || item.smallImageUrl || null,
     rakutenItemUrl: item.itemUrl ?? null,
+    itemCaption: item.itemCaption || null,
     source: "rakuten",
   };
 }
