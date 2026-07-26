@@ -14,6 +14,10 @@ export function getDb(): DatabaseSync {
 
   db = new DatabaseSync(DB_PATH);
   db.exec("PRAGMA foreign_keys = ON;");
+  // Webサーバー(常時起動)とcheck-new-releasesのCLI(cron/手動実行)が同じDBファイルに
+  // 同時アクセスすることがあるため、WALモード+busy_timeoutで"database is locked"を防ぐ。
+  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA busy_timeout = 5000;");
 
   const schema = readFileSync(join(__dirname, "schema.sql"), "utf-8");
   db.exec(schema);
