@@ -15,53 +15,99 @@ export function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// 「温かみ・ナチュラル」な方向性の配色(深緑メイン)。書店・図書館のような落ち着いた雰囲気を意図している。
+const COLOR = {
+  bg: "#FAF6EF", // ページ背景(生成り)
+  surface: "#FFFFFF", // カード背景
+  text: "#33291F", // 本文(暖色の墨色)
+  textMuted: "#7A6A52", // 補足テキスト(暖色グレー)
+  accent: "#4B6350", // 主要アクション(深緑)
+  accentDark: "#3A4D3F", // 深緑の濃色(ホバー・強調用)
+  border: "#E3D9C6", // 枠線・区切り(ベージュ)
+  borderSoft: "#EDE4D3", // より淡い区切り線
+  statusOkBg: "#E4EFE1",
+  statusLoanBg: "#F5E8D8",
+  statusLoanText: "#8B5E3C",
+  statusNoneBg: "#F0EAE0",
+  statusNoneText: "#9C8F7A",
+  danger: "#B0413E", // 削除・エラー(落ち着いた赤茶)
+};
+
 const STYLE = `
   html { font-size: 18px; color-scheme: light; }
-  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; font-size: 1rem; color: #222; background: #fff; }
-  button { -webkit-appearance: none; appearance: none; color: #222; font-family: inherit; }
-  h1 { font-size: 1.3rem; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+    max-width: 720px; margin: 2rem auto; padding: 0 1.25rem 3rem; line-height: 1.75; font-size: 1rem;
+    color: ${COLOR.text}; background: ${COLOR.bg}; letter-spacing: 0.01em;
+  }
+  button { -webkit-appearance: none; appearance: none; color: ${COLOR.text}; font-family: inherit; }
+  h1 { font-size: 1.4rem; color: ${COLOR.accentDark}; margin: 0 0 1.5rem; padding-bottom: 0.9rem; border-bottom: 1px solid ${COLOR.border}; letter-spacing: 0.03em; }
   h1 a { text-decoration: none; color: inherit; }
-  nav { margin-bottom: 1.5rem; }
+  h2 { font-size: 1.1rem; color: ${COLOR.accentDark}; margin-top: 2rem; }
+  h3 { font-size: 1rem; color: ${COLOR.accentDark}; margin-top: 1.75rem; }
+  nav { margin-bottom: 1.75rem; }
   form.search { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-  form.search input { flex: 1; padding: 0.3rem; font-size: 1rem; }
-  form.search button { font-size: 1rem; }
+  form.search input {
+    flex: 1; min-width: 0; padding: 0.5rem 0.75rem; font-size: 1rem; border: 1px solid ${COLOR.border}; border-radius: 8px;
+    background: ${COLOR.surface}; color: ${COLOR.text};
+  }
+  form.search button, button.register-btn, .save-btn {
+    padding: 0.5rem 1.1rem; font-size: 1rem; border: none; border-radius: 8px;
+    background: ${COLOR.accent}; color: #fff; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  }
+  form.search button:active, button.register-btn:active, .save-btn:active { background: ${COLOR.accentDark}; }
   ul.authors { list-style: none; padding: 0; }
-  ul.authors li { margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.5rem; }
+  ul.authors li { margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem; }
   form.register { margin-top: 1rem; }
-  button.register-btn { padding: 0.4rem 1rem; font-size: 1rem; }
-  .already-registered { color: #2a7a2a; }
-  .book { display: flex; gap: 1rem; border-bottom: 1px solid #ddd; padding: 0.75rem 0; }
-  .book img { width: 80px; height: auto; flex-shrink: 0; }
+  .already-registered { color: ${COLOR.accentDark}; }
+  .book {
+    display: flex; gap: 1rem; background: ${COLOR.surface}; border: 1px solid ${COLOR.borderSoft};
+    border-radius: 12px; padding: 1rem; margin-bottom: 0.85rem;
+  }
+  .book img { width: 80px; height: auto; flex-shrink: 0; border-radius: 6px; }
   .book .meta { flex: 1; }
   .book .title { font-weight: bold; }
-  .holding { margin-top: 0.3rem; font-size: 0.9rem; }
-  .status { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 4px; background: #eee; margin-right: 0.3rem; }
-  .status.ok { background: #dff5df; }
-  .status.loan { background: #f5e8df; }
-  .status.none { background: #f0f0f0; color: #888; }
-  a.reserve-btn { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid #666; border-radius: 4px; text-decoration: none; color: inherit; font-size: 0.85rem; margin-left: 0.3rem; }
-  .track-btn { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid #666; border-radius: 4px; background: none; font-size: 0.85rem; margin-left: 0.3rem; margin-top: 0.3rem; cursor: pointer; }
-  .track-btn.remove { border-color: #b00; color: #b00; }
-  .unregister-btn { border: none; background: none; color: #b00; font-size: 0.85rem; cursor: pointer; padding: 0; text-decoration: underline; }
-  .more-link { display: inline-block; margin-top: 1rem; }
-  .hint { color: #666; font-size: 0.9rem; }
-  .error { color: #b00; }
+  .holding { margin-top: 0.4rem; font-size: 0.9rem; }
+  .status { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; background: ${COLOR.statusNoneBg}; color: ${COLOR.statusNoneText}; margin-right: 0.3rem; }
+  .status.ok { background: ${COLOR.statusOkBg}; color: ${COLOR.accentDark}; }
+  .status.loan { background: ${COLOR.statusLoanBg}; color: ${COLOR.statusLoanText}; }
+  .status.none { background: ${COLOR.statusNoneBg}; color: ${COLOR.statusNoneText}; }
+  a.reserve-btn {
+    display: inline-block; padding: 0.2rem 0.7rem; border: 1px solid ${COLOR.accent}; border-radius: 999px;
+    text-decoration: none; color: ${COLOR.accentDark}; font-size: 0.85rem; margin-left: 0.3rem;
+  }
+  .track-btn {
+    display: inline-block; padding: 0.25rem 0.75rem; border: 1px solid ${COLOR.accent}; border-radius: 999px;
+    background: none; color: ${COLOR.accentDark}; font-size: 0.85rem; margin-left: 0.3rem; margin-top: 0.5rem; cursor: pointer;
+  }
+  .track-btn.remove { border-color: ${COLOR.danger}; color: ${COLOR.danger}; }
+  .unregister-btn { border: none; background: none; color: ${COLOR.danger}; font-size: 0.85rem; cursor: pointer; padding: 0; text-decoration: underline; }
+  .more-link { display: inline-block; margin-top: 1.2rem; color: ${COLOR.accentDark}; }
+  .hint { color: ${COLOR.textMuted}; font-size: 0.9rem; }
+  .error { color: ${COLOR.danger}; }
   .book .title a { color: inherit; text-decoration: none; }
   .book .title a:hover { text-decoration: underline; }
-  .book-detail { display: flex; gap: 1.2rem; margin-bottom: 1rem; }
-  .book-detail img { width: 160px; height: auto; flex-shrink: 0; }
-  .book-detail .meta > div { margin-bottom: 0.3rem; }
-  .caption { white-space: pre-wrap; background: #f7f7f7; padding: 0.75rem; border-radius: 4px; margin: 1rem 0; }
-  .sub-nav { font-size: 0.85rem; margin-top: 0.3rem; }
-  .reason { color: #666; font-size: 0.85rem; margin-top: 0.2rem; }
-  fieldset { border: 1px solid #ddd; border-radius: 4px; margin-bottom: 1rem; padding: 0.75rem; }
-  .genre-list label { display: block; margin-bottom: 0.3rem; }
-  textarea { width: 100%; box-sizing: border-box; font-size: 1rem; padding: 0.4rem; font-family: inherit; }
-  .save-btn { padding: 0.4rem 1rem; font-size: 1rem; margin-top: 0.5rem; }
-  .saved-notice { color: #2a7a2a; }
-  .note-form { margin-top: 0.4rem; }
-  .note-form input[type="text"] { width: 100%; box-sizing: border-box; padding: 0.25rem; font-size: 0.9rem; }
-  h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+  .book-detail { display: flex; gap: 1.2rem; margin-bottom: 1.2rem; background: ${COLOR.surface}; border: 1px solid ${COLOR.borderSoft}; border-radius: 12px; padding: 1.2rem; }
+  .book-detail img { width: 160px; height: auto; flex-shrink: 0; border-radius: 8px; }
+  .book-detail .meta > div { margin-bottom: 0.4rem; }
+  .caption { white-space: pre-wrap; background: ${COLOR.surface}; border: 1px solid ${COLOR.borderSoft}; padding: 1rem; border-radius: 10px; margin: 1rem 0; color: ${COLOR.text}; }
+  .sub-nav { font-size: 0.85rem; margin-top: 0.5rem; }
+  .sub-nav a { color: ${COLOR.accentDark}; }
+  .reason { color: ${COLOR.textMuted}; font-size: 0.85rem; margin-top: 0.3rem; }
+  fieldset { border: 1px solid ${COLOR.borderSoft}; border-radius: 12px; margin-bottom: 1.2rem; padding: 1rem; background: ${COLOR.surface}; }
+  legend { color: ${COLOR.accentDark}; padding: 0 0.4rem; }
+  .genre-list label { display: block; margin-bottom: 0.4rem; }
+  textarea {
+    width: 100%; box-sizing: border-box; font-size: 1rem; padding: 0.6rem; font-family: inherit;
+    border: 1px solid ${COLOR.border}; border-radius: 8px; background: #fff; color: ${COLOR.text};
+  }
+  .saved-notice { color: ${COLOR.accentDark}; }
+  .note-form { margin-top: 0.5rem; }
+  .note-form input[type="text"] {
+    width: 100%; box-sizing: border-box; padding: 0.4rem 0.6rem; font-size: 0.9rem;
+    border: 1px solid ${COLOR.border}; border-radius: 8px; background: #fff; color: ${COLOR.text};
+  }
+  a { color: ${COLOR.accentDark}; }
 `;
 
 function layout(title: string, body: string): string {
@@ -69,6 +115,7 @@ function layout(title: string, body: string): string {
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>${escapeHtml(title)} - book-radar</title>
 <style>${STYLE}</style>
