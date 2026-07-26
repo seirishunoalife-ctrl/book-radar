@@ -16,8 +16,9 @@ export function escapeHtml(value: string): string {
 }
 
 const STYLE = `
-  html { font-size: 18px; }
-  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; font-size: 1rem; }
+  html { font-size: 18px; color-scheme: light; }
+  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; font-size: 1rem; color: #222; background: #fff; }
+  button { -webkit-appearance: none; appearance: none; color: #222; font-family: inherit; }
   h1 { font-size: 1.3rem; }
   h1 a { text-decoration: none; color: inherit; }
   nav { margin-bottom: 1.5rem; }
@@ -58,9 +59,8 @@ const STYLE = `
   textarea { width: 100%; box-sizing: border-box; font-size: 1rem; padding: 0.4rem; font-family: inherit; }
   .save-btn { padding: 0.4rem 1rem; font-size: 1rem; margin-top: 0.5rem; }
   .saved-notice { color: #2a7a2a; }
-  .note-form { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
-  .note-form input[type="text"] { flex: 1; padding: 0.25rem; font-size: 0.9rem; }
-  .note-form button { font-size: 0.85rem; }
+  .note-form { margin-top: 0.4rem; }
+  .note-form input[type="text"] { width: 100%; box-sizing: border-box; padding: 0.25rem; font-size: 0.9rem; }
   h3 { font-size: 1.05rem; margin-top: 1.5rem; }
 `;
 
@@ -69,6 +69,7 @@ function layout(title: string, body: string): string {
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
 <title>${escapeHtml(title)} - book-radar</title>
 <style>${STYLE}</style>
 </head>
@@ -140,12 +141,13 @@ function renderTrackToggle(isbn: string, bookId: number | null, isTracked: boole
   </form>`;
 }
 
+// 保存ボタンは置かず、テキスト入力後にEnter(モバイルでは「完了」キー)で送信する
+// (フォーム内の入力欄が1つだけなら、送信ボタンが無くてもEnterで暗黙的に送信される)。
 function renderNoteForm(bookId: number, note: string | null): string {
   return `<form class="note-form" action="/watchlist/note" method="post">
     <input type="hidden" name="bookId" value="${bookId}">
     <input type="hidden" name="returnTo" value="/">
-    <input type="text" name="note" value="${escapeHtml(note ?? "")}" placeholder="備考(例: 〇〇さんに勧められた)">
-    <button type="submit">保存</button>
+    <input type="text" name="note" value="${escapeHtml(note ?? "")}" placeholder="備考(例: 〇〇さんに勧められた。入力後Enterで保存)">
   </form>`;
 }
 
