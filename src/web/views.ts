@@ -67,6 +67,7 @@ const STYLE = `
   .book img { width: 80px; height: auto; flex-shrink: 0; border-radius: 6px; }
   .book .meta { flex: 1; }
   .book .title { font-weight: bold; }
+  .author-name { color: ${COLOR.textMuted}; font-size: 0.85rem; margin-top: 0.1rem; }
   .holding { margin-top: 0.4rem; font-size: 0.9rem; }
   .status { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; background: ${COLOR.statusNoneBg}; color: ${COLOR.statusNoneText}; margin-right: 0.3rem; }
   .status.ok { background: ${COLOR.statusOkBg}; color: ${COLOR.accentDark}; }
@@ -108,9 +109,11 @@ const STYLE = `
     border: 1px solid ${COLOR.border}; border-radius: 8px; background: #fff; color: ${COLOR.text};
   }
   a { color: ${COLOR.accentDark}; }
+  body.bookshelf { background: linear-gradient(180deg, #F0E6D2 0%, #E8DCC2 100%); }
+  body.bookshelf .book img { box-shadow: 3px 4px 10px rgba(59, 42, 20, 0.3); }
 `;
 
-function layout(title: string, body: string): string {
+function layout(title: string, body: string, bodyClass?: string): string {
   return `<!doctype html>
 <html lang="ja">
 <head>
@@ -120,7 +123,7 @@ function layout(title: string, body: string): string {
 <title>${escapeHtml(title)} - book-radar</title>
 <style>${STYLE}</style>
 </head>
-<body>
+<body${bodyClass ? ` class="${bodyClass}"` : ""}>
 <h1><a href="/">book-radar</a></h1>
 ${body}
 </body>
@@ -204,6 +207,7 @@ function renderWatchlistItem(book: WatchlistBook): string {
   ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt="" loading="lazy"></a>` : ""}
   <div class="meta">
     <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
+    <div class="author-name">${escapeHtml(book.authorName ?? "著者不明")}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     ${renderHoldings(book.holdings)}
     ${renderNoteForm(book.bookId, book.note)}
@@ -281,6 +285,7 @@ ${body}
 ${moreLink}
 ${unregisterForm}
 `,
+    "bookshelf",
   );
 }
 

@@ -6,6 +6,7 @@ export interface WatchlistBook {
   bookId: number;
   isbn13: string;
   title: string;
+  authorName: string | null;
   releaseDate: string | null;
   coverImageUrl: string | null;
   note: string | null;
@@ -48,7 +49,7 @@ export function listWatchlist(): WatchlistBook[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT b.id, b.isbn13, b.title, b.release_date, b.cover_image_url, w.note
+      `SELECT b.id, b.isbn13, b.title, b.author_name, b.release_date, b.cover_image_url, w.note
        FROM watchlist w
        JOIN books b ON b.id = w.book_id
        ORDER BY w.created_at DESC`,
@@ -57,6 +58,7 @@ export function listWatchlist(): WatchlistBook[] {
     id: number;
     isbn13: string;
     title: string;
+    author_name: string | null;
     release_date: string | null;
     cover_image_url: string | null;
     note: string | null;
@@ -70,6 +72,7 @@ export function listWatchlist(): WatchlistBook[] {
     bookId: row.id,
     isbn13: row.isbn13,
     title: row.title,
+    authorName: row.author_name,
     releaseDate: row.release_date,
     coverImageUrl: row.cover_image_url,
     note: row.note,

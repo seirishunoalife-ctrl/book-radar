@@ -40,7 +40,7 @@ async function findNewReleaseCandidates(author: Author): Promise<BookInfo[]> {
     let reachedKnownBook = false;
 
     for (const item of result.items) {
-      if (item.isbn13 && bookExists(db, item.isbn13)) {
+      if (item.isbn13 && bookKnownForAuthor(db, item.isbn13, author.id)) {
         reachedKnownBook = true;
         break;
       }
@@ -92,6 +92,12 @@ export async function checkNewReleasesForAllAuthors(): Promise<AuthorNewReleaseR
   return results;
 }
 
-function bookExists(db: DatabaseSync, isbn: string): boolean {
-  return db.prepare("SELECT 1 FROM books WHERE isbn13 = ?").get(isbn) !== undefined;
+/**
+ * このISBNが「この作家に紐づく本」として既にDBにあるかを判定する。isbn13だけで判定すると、
+ * 作家登録の解除→再登録などでauthor_idがNULLになった孤立レコード(他の作家の本や、
+ * 紐付けが外れた本)を「既知」と誤認してページ探索を打ち切ってしまう(実際にあった不具合)。
+ * author_idまで一致する場合のみ「この作家について既知」とみなす。
+ */
+function bookKnownForAuthor(db: DatabaseSync, isbn: string, authorId: number): boolean {
+  return db.prepare("SELECT 1 FROM books WHERE isbn13 = ? AND author_id = ?").get(isbn, authorId) !== undefined;
 }
