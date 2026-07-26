@@ -2,6 +2,9 @@ import type { Author } from "../core/authorService.js";
 import type { AuthorBooksResult } from "../core/authorBooks.js";
 import type { CheckBookResult } from "../core/checkBook.js";
 import type { WatchlistBook } from "../core/watchlistService.js";
+import type { Preferences } from "../core/preferencesService.js";
+import type { RecommendedBook } from "../core/recommendationService.js";
+import type { GenreOption } from "../core/genreCatalog.js";
 import type { AuthorSearchPage, TitleSearchPage } from "../adapters/rakutenBooksClient.js";
 
 export function escapeHtml(value: string): string {
@@ -48,6 +51,13 @@ const STYLE = `
   .book-detail img { width: 160px; height: auto; flex-shrink: 0; }
   .book-detail .meta > div { margin-bottom: 0.3rem; }
   .caption { white-space: pre-wrap; background: #f7f7f7; padding: 0.75rem; border-radius: 4px; margin: 1rem 0; }
+  .sub-nav { font-size: 0.85rem; margin-top: 0.3rem; }
+  .reason { color: #666; font-size: 0.85rem; margin-top: 0.2rem; }
+  fieldset { border: 1px solid #ddd; border-radius: 4px; margin-bottom: 1rem; padding: 0.75rem; }
+  .genre-list label { display: block; margin-bottom: 0.3rem; }
+  textarea { width: 100%; box-sizing: border-box; font-size: 1rem; padding: 0.4rem; font-family: inherit; }
+  .save-btn { padding: 0.4rem 1rem; font-size: 1rem; margin-top: 0.5rem; }
+  .saved-notice { color: #2a7a2a; }
 `;
 
 function layout(title: string, body: string): string {
@@ -76,6 +86,7 @@ function searchForms(): string {
     <input type="text" name="name" placeholder="作家名で検索" required>
     <button type="submit">作家名で検索</button>
   </form>
+  <div class="sub-nav"><a href="/recommendations">おすすめ本</a> / <a href="/preferences">好みの設定</a></div>
 </nav>`;
 }
 
@@ -326,6 +337,72 @@ ${searchForms()}
 <form class="register" action="/authors" method="post">
   <input type="hidden" name="name" value="${escapeHtml(name)}">
   <button type="submit" class="register-btn">この作家を登録する</button>
+</form>
+`,
+  );
+}
+
+export function renderPreferencesPage(prefs: Preferences, genreCatalog: GenreOption[], saved: boolean): string {
+  const genreCheckboxes = genreCatalog
+    .map((g) => {
+      const checked = prefs.favoriteGenreIds.includes(g.id) ? " checked" : "";
+      return `<label><input type="checkbox" name="genreIds" value="${escapeHtml(g.id)}"${checked}> ${escapeHtml(g.name)}</label>`;
+    })
+    .join("");
+
+  return layout(
+    "好みの設定",
+    `
+${searchForms()}
+<h2>好みの設定</h2>
+${saved ? `<p class="saved-notice">保存しました。</p>` : ""}
+<form action="/preferences" method="post">
+  <fieldset>
+    <legend>好きなジャンル(複数選択可)</legend>
+    <div class="genre-list">${genreCheckboxes}</div>
+  </fieldset>
+  <fieldset>
+    <legend>好きな作家(1行に1人)</legend>
+    <textarea name="authors" rows="4" placeholder="例:&#10;東野圭吾&#10;中山七里">${escapeHtml(prefs.favoriteAuthors.join("\n"))}</textarea>
+  </fieldset>
+  <fieldset>
+    <legend>ビジネス書のテーマ(1行に1件)</legend>
+    <textarea name="themes" rows="3" placeholder="例:&#10;マネジメント&#10;マーケティング">${escapeHtml(prefs.businessThemes.join("\n"))}</textarea>
+  </fieldset>
+  <button type="submit" class="save-btn">保存する</button>
+</form>
+`,
+  );
+}
+
+export function renderRecommendationsPage(books: RecommendedBook[], trackedBookIdsByIsbn: Map<string, number>): string {
+  const body =
+    books.length === 0
+      ? `<p>おすすめ本はまだ生成されていません。<a href="/preferences">好みの設定</a>で登録するか、「気になる本リスト」に本を追加してから、下のボタンで生成してください。</p>`
+      : books
+          .map((book) => {
+            const bookId = trackedBookIdsByIsbn.get(book.isbn13) ?? null;
+            return `
+<div class="book">
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
+  <div class="meta">
+    <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
+    <div>${escapeHtml(book.authorName ?? "著者不明")} / ${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
+    <div class="reason">${escapeHtml(book.reason)}</div>
+    ${renderTrackToggle(book.isbn13, bookId, bookId !== null, "/recommendations")}
+  </div>
+</div>`;
+          })
+          .join("");
+
+  return layout(
+    "おすすめ本",
+    `
+${searchForms()}
+<h2>おすすめ本</h2>
+${body}
+<form action="/recommendations/refresh" method="post" style="margin-top: 1rem;">
+  <button type="submit" class="save-btn">更新する</button>
 </form>
 `,
   );

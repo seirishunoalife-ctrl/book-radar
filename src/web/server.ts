@@ -6,12 +6,17 @@ import { checkBook } from "../core/checkBook.js";
 import { checkNewReleasesForAuthor } from "../core/newReleaseCheck.js";
 import { addToWatchlist, removeFromWatchlist, isInWatchlist, listWatchlist } from "../core/watchlistService.js";
 import { searchBookInfoByTitleWithHits, searchBookInfoByAuthorPage } from "../core/bookInfoService.js";
+import { getPreferences, savePreferences, parseLines } from "../core/preferencesService.js";
+import { generateRecommendations, getCachedRecommendations } from "../core/recommendationService.js";
+import { GENRE_CATALOG } from "../core/genreCatalog.js";
 import {
   renderHomePage,
   renderAuthorPage,
   renderIsbnPage,
   renderTitleSearchPage,
   renderAuthorSearchPage,
+  renderPreferencesPage,
+  renderRecommendationsPage,
   renderErrorPage,
 } from "./views.js";
 
@@ -114,6 +119,37 @@ const server = createServer(async (req, res) => {
       removeFromWatchlist(bookId);
       const returnTo = form.get("returnTo") || "/";
       res.writeHead(302, { Location: returnTo });
+      res.end();
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/preferences") {
+      const saved = url.searchParams.get("saved") === "1";
+      sendHtml(res, 200, renderPreferencesPage(getPreferences(), GENRE_CATALOG, saved));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/preferences") {
+      const form = await readFormBody(req);
+      savePreferences({
+        favoriteGenreIds: form.getAll("genreIds"),
+        favoriteAuthors: parseLines(form.get("authors") ?? ""),
+        businessThemes: parseLines(form.get("themes") ?? ""),
+      });
+      res.writeHead(302, { Location: "/preferences?saved=1" });
+      res.end();
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/recommendations") {
+      const trackedBookIdsByIsbn = new Map(listWatchlist().map((b) => [b.isbn13, b.bookId]));
+      sendHtml(res, 200, renderRecommendationsPage(getCachedRecommendations(), trackedBookIdsByIsbn));
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/recommendations/refresh") {
+      await generateRecommendations();
+      res.writeHead(302, { Location: "/recommendations" });
       res.end();
       return;
     }

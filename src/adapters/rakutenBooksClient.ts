@@ -20,6 +20,7 @@ interface RakutenBookItem {
   smallImageUrl?: string;
   mediumImageUrl?: string;
   largeImageUrl?: string;
+  booksGenreId?: string;
 }
 
 interface RakutenSearchResponse {
@@ -111,6 +112,20 @@ export class RakutenBooksClient implements TitleSearchableProvider {
     return { items: items.map(toBookInfo), page, pageCount, count };
   }
 
+  /**
+   * おすすめ本機能向けの汎用検索(ジャンル/著者/タイトルキーワードいずれの条件でも使う)。
+   * 発売日の新しい順に固定。pageCountを返すので、呼び出し側で毎回違うページを引いて
+   * 「更新する」のたびに違う候補が出るようにできる。
+   */
+  async searchForRecommendation(
+    query: Record<string, string>,
+    hits: number,
+    page: number,
+  ): Promise<{ items: BookInfo[]; pageCount: number }> {
+    const { items, pageCount } = await this.search({ ...query, sort: "-releaseDate" }, hits, page);
+    return { items: items.map(toBookInfo), pageCount };
+  }
+
   private async search(
     query: Record<string, string>,
     hits = 10,
@@ -172,6 +187,7 @@ function toBookInfo(item: RakutenBookItem): BookInfo {
     coverImageUrl: item.largeImageUrl || item.mediumImageUrl || item.smallImageUrl || null,
     rakutenItemUrl: item.itemUrl ?? null,
     itemCaption: item.itemCaption || null,
+    genreId: item.booksGenreId || null,
     source: "rakuten",
   };
 }

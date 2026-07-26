@@ -35,6 +35,15 @@ export async function searchBookInfoByAuthorPage(name: string, page: number): Pr
   return requireRakutenClient("著者名検索").searchByAuthorPage(name, page);
 }
 
+/** おすすめ本機能向けの汎用検索(ジャンル/著者/タイトルキーワード条件を渡せる)。楽天ブックスAPIのみ対応。 */
+export async function searchBookInfoForRecommendation(
+  query: Record<string, string>,
+  hits: number,
+  page: number,
+): Promise<{ items: BookInfo[]; pageCount: number }> {
+  return requireRakutenClient("おすすめ本の検索").searchForRecommendation(query, hits, page);
+}
+
 function requireRakutenClient(featureName: string): RakutenBooksClient {
   if (!process.env.RAKUTEN_APP_ID || !process.env.RAKUTEN_APP_SECRET) {
     throw new Error(

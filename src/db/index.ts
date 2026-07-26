@@ -33,6 +33,9 @@ function migrate(db: DatabaseSync): void {
   if (!columns.some((c) => c.name === "item_caption")) {
     db.exec("ALTER TABLE books ADD COLUMN item_caption TEXT");
   }
+  if (!columns.some((c) => c.name === "books_genre_id")) {
+    db.exec("ALTER TABLE books ADD COLUMN books_genre_id TEXT");
+  }
 }
 
 function seed(db: DatabaseSync): void {

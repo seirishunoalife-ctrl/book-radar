@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS books (
   cover_image_url TEXT,
   rakuten_item_url TEXT,
   item_caption TEXT,
+  /** 楽天ブックスAPIのbooksGenreId(複数分類は"/"区切りでそのまま保持。おすすめ機能の集計に使う) */
+  books_genre_id TEXT,
   metadata_source TEXT,
   metadata_fetched_at TEXT,
   created_at TEXT DEFAULT (datetime('now'))
@@ -68,4 +70,29 @@ CREATE TABLE IF NOT EXISTS watchlist (
   book_id INTEGER NOT NULL REFERENCES books(id),
   created_at TEXT DEFAULT (datetime('now')),
   UNIQUE(book_id)
+);
+
+CREATE TABLE IF NOT EXISTS preferences (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id),
+  -- 以下3つはJSON配列文字列(例: ["001004001","001006"])として保持する
+  favorite_genre_ids TEXT NOT NULL DEFAULT '[]',
+  favorite_authors TEXT NOT NULL DEFAULT '[]',
+  business_themes TEXT NOT NULL DEFAULT '[]',
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(user_id)
+);
+
+-- 「更新する」ボタンを押した時点のおすすめ結果をキャッシュする(ページ表示のたびにAPIを叩かないため)
+CREATE TABLE IF NOT EXISTS recommendations (
+  id INTEGER PRIMARY KEY,
+  isbn13 TEXT NOT NULL,
+  title TEXT NOT NULL,
+  author_name TEXT,
+  release_date TEXT,
+  cover_image_url TEXT,
+  item_caption TEXT,
+  rakuten_item_url TEXT,
+  reason TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
 );

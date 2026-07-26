@@ -62,7 +62,7 @@ function upsertBook(
     db.prepare(
       `UPDATE books SET
          title = ?, author_name = ?, series_name = ?, publisher = ?, release_date = ?,
-         cover_image_url = ?, rakuten_item_url = ?, item_caption = ?, metadata_source = ?, metadata_fetched_at = datetime('now'),
+         cover_image_url = ?, rakuten_item_url = ?, item_caption = ?, books_genre_id = ?, metadata_source = ?, metadata_fetched_at = datetime('now'),
          author_id = COALESCE(?, author_id)
        WHERE id = ?`,
     ).run(
@@ -74,6 +74,7 @@ function upsertBook(
       bookInfo?.coverImageUrl ?? null,
       bookInfo?.rakutenItemUrl ?? null,
       bookInfo?.itemCaption ?? null,
+      bookInfo?.genreId ?? null,
       bookInfo?.source ?? null,
       authorId ?? null,
       existing.id,
@@ -84,8 +85,8 @@ function upsertBook(
   const result = db
     .prepare(
       `INSERT INTO books
-         (isbn13, title, author_name, series_name, publisher, release_date, cover_image_url, rakuten_item_url, item_caption, metadata_source, metadata_fetched_at, author_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+         (isbn13, title, author_name, series_name, publisher, release_date, cover_image_url, rakuten_item_url, item_caption, books_genre_id, metadata_source, metadata_fetched_at, author_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
     )
     .run(
       isbn,
@@ -97,6 +98,7 @@ function upsertBook(
       bookInfo?.coverImageUrl ?? null,
       bookInfo?.rakutenItemUrl ?? null,
       bookInfo?.itemCaption ?? null,
+      bookInfo?.genreId ?? null,
       bookInfo?.source ?? null,
       authorId ?? null,
     );

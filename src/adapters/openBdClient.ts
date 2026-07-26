@@ -48,6 +48,7 @@ function toBookInfo(summary: OpenBdSummary): BookInfo {
     coverImageUrl: summary.cover || null,
     rakutenItemUrl: null,
     itemCaption: null,
+    genreId: null,
     source: "openbd",
   };
 }

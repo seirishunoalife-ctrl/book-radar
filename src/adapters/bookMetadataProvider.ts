@@ -12,6 +12,8 @@ export interface BookInfo {
   rakutenItemUrl: string | null;
   /** あらすじ・紹介文。楽天ブックスAPIのitemCaptionのみ対応(openBDは非対応で常にnull)。 */
   itemCaption: string | null;
+  /** 楽天ブックスAPIのbooksGenreId(複数分類は"/"区切り)。おすすめ機能の集計用。楽天のみ対応。 */
+  genreId: string | null;
   source: MetadataSource;
 }
 
