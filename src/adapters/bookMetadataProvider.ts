@@ -1,4 +1,4 @@
-export type MetadataSource = "rakuten" | "openbd";
+export type MetadataSource = "rakuten" | "openbd" | "googlebooks";
 
 export interface BookInfo {
   isbn13: string;
