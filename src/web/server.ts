@@ -16,7 +16,7 @@ import {
 const PORT = Number(process.env.WEB_PORT ?? 3000);
 
 function sendHtml(res: ServerResponse, status: number, html: string): void {
-  res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+  res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
   res.end(html);
 }
 
