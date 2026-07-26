@@ -4,7 +4,13 @@ import { addAuthor, deleteAuthor, getAuthorByName, listAuthors } from "../core/a
 import { getAuthorBooks } from "../core/authorBooks.js";
 import { checkBook } from "../core/checkBook.js";
 import { checkNewReleasesForAuthor } from "../core/newReleaseCheck.js";
-import { addToWatchlist, removeFromWatchlist, isInWatchlist, listWatchlist } from "../core/watchlistService.js";
+import {
+  addToWatchlist,
+  removeFromWatchlist,
+  updateWatchlistNote,
+  isInWatchlist,
+  listWatchlist,
+} from "../core/watchlistService.js";
 import { searchBookInfoByTitleWithHits, searchBookInfoByAuthorPage } from "../core/bookInfoService.js";
 import { getPreferences, savePreferences, parseLines } from "../core/preferencesService.js";
 import { generateRecommendations, getCachedRecommendations } from "../core/recommendationService.js";
@@ -117,6 +123,18 @@ const server = createServer(async (req, res) => {
       if (!bookId) throw new Error("bookIdが指定されていません。");
 
       removeFromWatchlist(bookId);
+      const returnTo = form.get("returnTo") || "/";
+      res.writeHead(302, { Location: returnTo });
+      res.end();
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/watchlist/note") {
+      const form = await readFormBody(req);
+      const bookId = Number(form.get("bookId") ?? "");
+      if (!bookId) throw new Error("bookIdが指定されていません。");
+
+      updateWatchlistNote(bookId, form.get("note") ?? "");
       const returnTo = form.get("returnTo") || "/";
       res.writeHead(302, { Location: returnTo });
       res.end();

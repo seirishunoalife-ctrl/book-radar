@@ -1,7 +1,8 @@
 import { getDb } from "../db/index.js";
 import { getPreferences } from "./preferencesService.js";
 import { searchBookInfoForRecommendation } from "./bookInfoService.js";
-import { GENRE_CATALOG, genreNameById } from "./genreCatalog.js";
+import { GENRE_CATALOG, genreNameById, genreCategoryById, type RecommendationCategory } from "./genreCatalog.js";
+import { findMatchingAward } from "./awardsService.js";
 import type { BookInfo } from "../adapters/bookMetadataProvider.js";
 
 export interface RecommendedBook {
@@ -13,13 +14,15 @@ export interface RecommendedBook {
   itemCaption: string | null;
   rakutenItemUrl: string | null;
   reason: string;
+  category: RecommendationCategory;
 }
 
-const TOTAL_RESULTS = 10;
+const MAX_PER_CATEGORY = 8;
 const FREQUENT_GENRE_LIMIT = 3;
 const FREQUENT_AUTHOR_LIMIT = 3;
 const HITS_PER_SOURCE = 10;
 const MAX_PAGE_FOR_VARIETY = 3;
+const RECENT_WITHIN_DAYS = 90;
 
 // 同一プロセス内での楽天APIへの全リクエストがrakutenBooksClient側でスロットル・リトライ
 // されるため、ここでは特に追加の間隔制御はしない(呼び出し元は直列にawaitするだけでよい)。
@@ -36,6 +39,25 @@ function shuffle<T>(arr: T[]): T[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+/** "2026年09月17日頃" 等の表記から年月日を緩く読み取る。パースできなければnull。 */
+function parseReleaseDate(text: string | null): Date | null {
+  if (!text) return null;
+  const m = text.match(/(\d{4})年(\d{1,2})月(?:(\d{1,2})日)?/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day = m[3] ? Number(m[3]) : 1;
+  const date = new Date(year, month, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isRecent(releaseDate: string | null): boolean {
+  const date = parseReleaseDate(releaseDate);
+  if (!date) return false;
+  const diffDays = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays <= RECENT_WITHIN_DAYS && diffDays >= -30; // 少し先の予約可能な近刊も許容
 }
 
 /** 気になる本リストのジャンル・著者を集計し、頻出上位を返す(単純な出現回数カウント)。 */
@@ -89,12 +111,16 @@ function getWatchlistIsbns(): Set<string> {
 interface Candidate {
   info: BookInfo;
   reason: string;
+  category: RecommendationCategory;
+  /** 選出の優先度。2=受賞作一致、1=直近発売、0=それ以外(値が大きいほど優先) */
+  priority: number;
 }
 
 /**
  * 好みプロフィール(事前登録)と気になる本リストの集計(履歴)を組み合わせて、
- * 楽天ブックスAPIから候補を集め、重複・気になる本リスト登録済みを除いて10冊選ぶ。
- * 本格的な学習は行わず、単純な集計+ルールベースの検索の組み合わせ。
+ * 楽天ブックスAPIから候補を集め、「小説・エッセイ系」「ビジネス書・実用書系」の2カテゴリに
+ * 分けて選ぶ。本格的な学習は行わず、単純な集計+ルールベースの検索・優先度付けの組み合わせ。
+ * 優先度: 受賞作一致 > 直近3ヶ月以内の新刊 > その他(同順位内はランダム、更新の度に変化する)。
  */
 export async function generateRecommendations(): Promise<RecommendedBook[]> {
   const prefs = getPreferences();
@@ -115,15 +141,15 @@ export async function generateRecommendations(): Promise<RecommendedBook[]> {
   for (const genreId of genreIds) {
     const isFavorite = prefs.favoriteGenreIds.includes(genreId);
     const reason = `${isFavorite ? "好きなジャンル" : "よく読むジャンル"}: ${genreNameById(genreId)}`;
-    await collectFromQuery({ booksGenreId: genreId }, reason, candidates);
+    await collectFromQuery({ booksGenreId: genreId }, reason, genreCategoryById(genreId), candidates);
   }
   for (const author of authors) {
     const isFavorite = prefs.favoriteAuthors.includes(author);
     const reason = `${isFavorite ? "好きな作家" : "よく読む作家"}: ${author}`;
-    await collectFromQuery({ author }, reason, candidates);
+    await collectFromQuery({ author }, reason, "fiction", candidates);
   }
   for (const theme of themes) {
-    await collectFromQuery({ title: theme }, `テーマ: ${theme}`, candidates);
+    await collectFromQuery({ title: theme }, `テーマ: ${theme}`, "business", candidates);
   }
 
   const excludeIsbns = getWatchlistIsbns();
@@ -136,17 +162,26 @@ export async function generateRecommendations(): Promise<RecommendedBook[]> {
     deduped.push(candidate);
   }
 
-  const selected = deduped.slice(0, TOTAL_RESULTS);
-  const results: RecommendedBook[] = selected.map((c) => ({
-    isbn13: c.info.isbn13,
-    title: c.info.title,
-    authorName: c.info.authorName,
-    releaseDate: c.info.releaseDate,
-    coverImageUrl: c.info.coverImageUrl,
-    itemCaption: c.info.itemCaption,
-    rakutenItemUrl: c.info.rakutenItemUrl,
-    reason: c.reason,
-  }));
+  // 優先度の高い順(同順位内はshuffle済みなのでランダム)に並べ、カテゴリごとに上限まで選ぶ
+  deduped.sort((a, b) => b.priority - a.priority);
+
+  const results: RecommendedBook[] = [];
+  for (const category of ["fiction", "business"] as const) {
+    const picked = deduped.filter((c) => c.category === category).slice(0, MAX_PER_CATEGORY);
+    for (const c of picked) {
+      results.push({
+        isbn13: c.info.isbn13,
+        title: c.info.title,
+        authorName: c.info.authorName,
+        releaseDate: c.info.releaseDate,
+        coverImageUrl: c.info.coverImageUrl,
+        itemCaption: c.info.itemCaption,
+        rakutenItemUrl: c.info.rakutenItemUrl,
+        reason: c.reason,
+        category,
+      });
+    }
+  }
 
   setCachedRecommendations(results);
   return results;
@@ -155,6 +190,7 @@ export async function generateRecommendations(): Promise<RecommendedBook[]> {
 async function collectFromQuery(
   query: Record<string, string>,
   reason: string,
+  category: RecommendationCategory,
   out: Candidate[],
 ): Promise<void> {
   try {
@@ -162,7 +198,15 @@ async function collectFromQuery(
     const page = randomPage(pageCount);
     const result = page === 1 ? { items } : await searchBookInfoForRecommendation(query, HITS_PER_SOURCE, page);
     for (const info of result.items) {
-      if (info.isbn13) out.push({ info, reason });
+      if (!info.isbn13) continue;
+
+      const award = findMatchingAward(info.title);
+      const finalReason = award
+        ? `受賞: ${award.awardName}${award.awardYear ? award.awardYear : ""}${award.rankLabel ? ` ${award.rankLabel}` : ""}`
+        : reason;
+      const priority = award ? 2 : isRecent(info.releaseDate) ? 1 : 0;
+
+      out.push({ info, reason: finalReason, category, priority });
     }
   } catch (error) {
     console.error(`おすすめ本の検索に失敗しました(条件: ${JSON.stringify(query)}):`, error instanceof Error ? error.message : error);
@@ -173,11 +217,21 @@ function setCachedRecommendations(results: RecommendedBook[]): void {
   const db = getDb();
   db.exec("DELETE FROM recommendations");
   const stmt = db.prepare(
-    `INSERT INTO recommendations (isbn13, title, author_name, release_date, cover_image_url, item_caption, rakuten_item_url, reason)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO recommendations (isbn13, title, author_name, release_date, cover_image_url, item_caption, rakuten_item_url, reason, category)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const r of results) {
-    stmt.run(r.isbn13, r.title, r.authorName, r.releaseDate, r.coverImageUrl, r.itemCaption, r.rakutenItemUrl, r.reason);
+    stmt.run(
+      r.isbn13,
+      r.title,
+      r.authorName,
+      r.releaseDate,
+      r.coverImageUrl,
+      r.itemCaption,
+      r.rakutenItemUrl,
+      r.reason,
+      r.category,
+    );
   }
 }
 
@@ -185,7 +239,7 @@ export function getCachedRecommendations(): RecommendedBook[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT isbn13, title, author_name, release_date, cover_image_url, item_caption, rakuten_item_url, reason
+      `SELECT isbn13, title, author_name, release_date, cover_image_url, item_caption, rakuten_item_url, reason, category
        FROM recommendations ORDER BY id`,
     )
     .all() as {
@@ -197,6 +251,7 @@ export function getCachedRecommendations(): RecommendedBook[] {
     item_caption: string | null;
     rakuten_item_url: string | null;
     reason: string | null;
+    category: string;
   }[];
 
   return rows.map((r) => ({
@@ -208,5 +263,6 @@ export function getCachedRecommendations(): RecommendedBook[] {
     itemCaption: r.item_caption,
     rakutenItemUrl: r.rakuten_item_url,
     reason: r.reason ?? "",
+    category: r.category === "business" ? "business" : "fiction",
   }));
 }

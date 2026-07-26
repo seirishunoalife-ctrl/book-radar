@@ -8,6 +8,7 @@ export interface WatchlistBook {
   title: string;
   releaseDate: string | null;
   coverImageUrl: string | null;
+  note: string | null;
   holdings: BookHolding[];
 }
 
@@ -33,12 +34,18 @@ export function isInWatchlist(bookId: number): boolean {
   return db.prepare("SELECT 1 FROM watchlist WHERE book_id = ?").get(bookId) !== undefined;
 }
 
+/** 気になる本の備考欄(メモ)を更新する。空文字はNULLとして保存する。 */
+export function updateWatchlistNote(bookId: number, note: string): void {
+  const db = getDb();
+  db.prepare("UPDATE watchlist SET note = ? WHERE book_id = ?").run(note.trim() || null, bookId);
+}
+
 /** ウォッチリストに追加した順(新しい順)に本を取得する */
 export function listWatchlist(): WatchlistBook[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT b.id, b.isbn13, b.title, b.release_date, b.cover_image_url
+      `SELECT b.id, b.isbn13, b.title, b.release_date, b.cover_image_url, w.note
        FROM watchlist w
        JOIN books b ON b.id = w.book_id
        ORDER BY w.created_at DESC`,
@@ -49,6 +56,7 @@ export function listWatchlist(): WatchlistBook[] {
     title: string;
     release_date: string | null;
     cover_image_url: string | null;
+    note: string | null;
   }[];
 
   return rows.map((row) => ({
@@ -57,6 +65,7 @@ export function listWatchlist(): WatchlistBook[] {
     title: row.title,
     releaseDate: row.release_date,
     coverImageUrl: row.cover_image_url,
+    note: row.note,
     holdings: getHoldingsForBook(db, row.id),
   }));
 }

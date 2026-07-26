@@ -58,6 +58,10 @@ const STYLE = `
   textarea { width: 100%; box-sizing: border-box; font-size: 1rem; padding: 0.4rem; font-family: inherit; }
   .save-btn { padding: 0.4rem 1rem; font-size: 1rem; margin-top: 0.5rem; }
   .saved-notice { color: #2a7a2a; }
+  .note-form { display: flex; gap: 0.4rem; margin-top: 0.4rem; }
+  .note-form input[type="text"] { flex: 1; padding: 0.25rem; font-size: 0.9rem; }
+  .note-form button { font-size: 0.85rem; }
+  h3 { font-size: 1.05rem; margin-top: 1.5rem; }
 `;
 
 function layout(title: string, body: string): string {
@@ -136,6 +140,15 @@ function renderTrackToggle(isbn: string, bookId: number | null, isTracked: boole
   </form>`;
 }
 
+function renderNoteForm(bookId: number, note: string | null): string {
+  return `<form class="note-form" action="/watchlist/note" method="post">
+    <input type="hidden" name="bookId" value="${bookId}">
+    <input type="hidden" name="returnTo" value="/">
+    <input type="text" name="note" value="${escapeHtml(note ?? "")}" placeholder="備考(例: 〇〇さんに勧められた)">
+    <button type="submit">保存</button>
+  </form>`;
+}
+
 function renderWatchlistItem(book: WatchlistBook): string {
   return `
 <div class="book">
@@ -144,6 +157,7 @@ function renderWatchlistItem(book: WatchlistBook): string {
     <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     ${renderHoldings(book.holdings)}
+    ${renderNoteForm(book.bookId, book.note)}
     ${renderTrackToggle(book.isbn13, book.bookId, true)}
   </div>
 </div>`;
@@ -375,14 +389,9 @@ ${saved ? `<p class="saved-notice">保存しました。</p>` : ""}
   );
 }
 
-export function renderRecommendationsPage(books: RecommendedBook[], trackedBookIdsByIsbn: Map<string, number>): string {
-  const body =
-    books.length === 0
-      ? `<p>おすすめ本はまだ生成されていません。<a href="/preferences">好みの設定</a>で登録するか、「気になる本リスト」に本を追加してから、下のボタンで生成してください。</p>`
-      : books
-          .map((book) => {
-            const bookId = trackedBookIdsByIsbn.get(book.isbn13) ?? null;
-            return `
+function renderRecommendationItem(book: RecommendedBook, trackedBookIdsByIsbn: Map<string, number>): string {
+  const bookId = trackedBookIdsByIsbn.get(book.isbn13) ?? null;
+  return `
 <div class="book">
   ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
   <div class="meta">
@@ -392,8 +401,21 @@ export function renderRecommendationsPage(books: RecommendedBook[], trackedBookI
     ${renderTrackToggle(book.isbn13, bookId, bookId !== null, "/recommendations")}
   </div>
 </div>`;
-          })
-          .join("");
+}
+
+export function renderRecommendationsPage(books: RecommendedBook[], trackedBookIdsByIsbn: Map<string, number>): string {
+  const fiction = books.filter((b) => b.category === "fiction");
+  const business = books.filter((b) => b.category === "business");
+
+  const body =
+    books.length === 0
+      ? `<p>おすすめ本はまだ生成されていません。<a href="/preferences">好みの設定</a>で登録するか、「気になる本リスト」に本を追加してから、下のボタンで生成してください。</p>`
+      : `
+<h3>小説・エッセイ系</h3>
+${fiction.length === 0 ? `<p class="hint">該当なし</p>` : fiction.map((b) => renderRecommendationItem(b, trackedBookIdsByIsbn)).join("")}
+<h3>ビジネス書・実用書系</h3>
+${business.length === 0 ? `<p class="hint">該当なし</p>` : business.map((b) => renderRecommendationItem(b, trackedBookIdsByIsbn)).join("")}
+`;
 
   return layout(
     "おすすめ本",

@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS status_history (
 CREATE TABLE IF NOT EXISTS watchlist (
   id INTEGER PRIMARY KEY,
   book_id INTEGER NOT NULL REFERENCES books(id),
+  note TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   UNIQUE(book_id)
 );
@@ -94,5 +95,19 @@ CREATE TABLE IF NOT EXISTS recommendations (
   item_caption TEXT,
   rakuten_item_url TEXT,
   reason TEXT,
+  category TEXT NOT NULL DEFAULT 'fiction',
   created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 受賞作品の手動登録リスト(楽天ブックスAPIに受賞情報が無いため)。
+-- 新しい受賞発表があった際に、npm run add-award で随時追加していく想定。
+CREATE TABLE IF NOT EXISTS awards (
+  id INTEGER PRIMARY KEY,
+  award_name TEXT NOT NULL,
+  award_year TEXT,
+  rank_label TEXT,
+  title TEXT NOT NULL,
+  author_name TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(award_name, title)
 );

@@ -10,6 +10,7 @@
     "add-author": "tsx src/cli/addAuthor.ts",
     "check-new-releases": "tsx src/cli/checkNewReleases.ts",
     "author-books": "tsx src/cli/authorBooks.ts",
+    "add-award": "tsx src/cli/addAward.ts",
     "web": "tsx src/web/server.ts"
   },
   "dependencies": {
