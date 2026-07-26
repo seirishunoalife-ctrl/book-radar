@@ -86,7 +86,7 @@ function upsertBook(
     .prepare(
       `INSERT INTO books
          (isbn13, title, author_name, series_name, publisher, release_date, cover_image_url, rakuten_item_url, item_caption, books_genre_id, metadata_source, metadata_fetched_at, author_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
     )
     .run(
       isbn,
