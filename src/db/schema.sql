@@ -61,3 +61,10 @@ CREATE TABLE IF NOT EXISTS status_history (
   new_status TEXT NOT NULL,
   changed_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS watchlist (
+  id INTEGER PRIMARY KEY,
+  book_id INTEGER NOT NULL REFERENCES books(id),
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(book_id)
+);

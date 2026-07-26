@@ -1,6 +1,7 @@
 import type { Author } from "../core/authorService.js";
 import type { AuthorBooksResult } from "../core/authorBooks.js";
 import type { CheckBookResult } from "../core/checkBook.js";
+import type { WatchlistBook } from "../core/watchlistService.js";
 import type { BookInfo } from "../adapters/bookMetadataProvider.js";
 import type { AuthorSearchPage } from "../adapters/rakutenBooksClient.js";
 
@@ -13,16 +14,16 @@ export function escapeHtml(value: string): string {
 }
 
 const STYLE = `
-  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }
+  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; font-size: 18px; }
   h1 { font-size: 1.3rem; }
   h1 a { text-decoration: none; color: inherit; }
   nav { margin-bottom: 1.5rem; }
   form.search { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
-  form.search input { flex: 1; padding: 0.3rem; }
+  form.search input { flex: 1; padding: 0.3rem; font-size: 1rem; }
   ul.authors { list-style: none; padding: 0; }
   ul.authors li { margin-bottom: 0.3rem; }
   form.register { margin-top: 1rem; }
-  button.register-btn { padding: 0.4rem 1rem; }
+  button.register-btn { padding: 0.4rem 1rem; font-size: 1rem; }
   .already-registered { color: #2a7a2a; }
   .book { display: flex; gap: 1rem; border-bottom: 1px solid #ddd; padding: 0.75rem 0; }
   .book img { width: 80px; height: auto; flex-shrink: 0; }
@@ -34,6 +35,10 @@ const STYLE = `
   .status.loan { background: #f5e8df; }
   .status.none { background: #f0f0f0; color: #888; }
   a.reserve-btn { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid #666; border-radius: 4px; text-decoration: none; color: inherit; font-size: 0.85rem; margin-left: 0.3rem; }
+  .track-btn { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid #666; border-radius: 4px; background: none; font-size: 0.85rem; margin-left: 0.3rem; cursor: pointer; }
+  .track-btn.remove { border-color: #b00; color: #b00; }
+  .more-link { display: inline-block; margin-top: 1rem; }
+  .hint { color: #666; font-size: 0.9rem; }
   .error { color: #b00; }
 `;
 
@@ -46,7 +51,7 @@ function layout(title: string, body: string): string {
 <style>${STYLE}</style>
 </head>
 <body>
-<h1><a href="/">book-radar 簡易画面</a></h1>
+<h1><a href="/">book-radar</a></h1>
 ${body}
 </body>
 </html>`;
@@ -86,13 +91,34 @@ function renderHoldings(holdings: { branchName: string; statusLabel: string; res
   return `<div class="holding">${parts.join(" ")}</div>`;
 }
 
-export function renderHomePage(authors: Author[]): string {
+function renderWatchlistItem(book: WatchlistBook): string {
+  return `
+<div class="book">
+  ${book.coverImageUrl ? `<img src="${escapeHtml(book.coverImageUrl)}" alt="">` : ""}
+  <div class="meta">
+    <div class="title">${escapeHtml(book.title)}</div>
+    <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
+    ${renderHoldings(book.holdings)}
+    <form action="/watchlist/remove" method="post">
+      <input type="hidden" name="bookId" value="${book.bookId}">
+      <button type="submit" class="track-btn remove">リストから削除</button>
+    </form>
+  </div>
+</div>`;
+}
+
+export function renderHomePage(authors: Author[], watchlistBooks: WatchlistBook[]): string {
   const authorList =
     authors.length === 0
-      ? `<p>登録済みの作家がいません。<code>npm run add-author -- 作家名</code> で登録してください。</p>`
+      ? `<p>登録済みの作家がいません。上の「作家名で検索」から登録してください。</p>`
       : `<ul class="authors">${authors
           .map((a) => `<li><a href="/author?name=${encodeURIComponent(a.name)}">${escapeHtml(a.name)}</a></li>`)
           .join("")}</ul>`;
+
+  const watchlistSection =
+    watchlistBooks.length === 0
+      ? `<p>気になる本はまだありません。タイトル検索・ISBN検索の結果から「追跡する」で追加できます。</p>`
+      : watchlistBooks.map(renderWatchlistItem).join("");
 
   return layout(
     "ホーム",
@@ -100,15 +126,19 @@ export function renderHomePage(authors: Author[]): string {
 ${searchForms()}
 <h2>登録済み作家</h2>
 ${authorList}
+<h2>気になる本</h2>
+${watchlistSection}
 `,
   );
 }
 
+const BOOKSHELF_PAGE_SIZE = 10;
+
 export function renderAuthorPage(result: AuthorBooksResult): string {
-  const { author, books } = result;
+  const { author, books, limit } = result;
   const body =
     books.length === 0
-      ? `<p>DBに登録済みの本がありません。<code>npm run check-new-releases</code> を実行してください。</p>`
+      ? `<p>本棚がまだ空です。登録直後は新刊チェックをバックグラウンドで実行中の場合があります。数分待ってから再読み込みしてください。</p>`
       : books
           .map(
             (book) => `
@@ -123,18 +153,34 @@ export function renderAuthorPage(result: AuthorBooksResult): string {
           )
           .join("");
 
+  // limitちょうど件数が返ってきた場合のみ「もっと見る」を表示する(それ以上が無ければ非表示)
+  const moreLink =
+    books.length === limit
+      ? `<a class="more-link" href="/author?name=${encodeURIComponent(author.name)}&limit=${limit + BOOKSHELF_PAGE_SIZE}">もっと見る(+${BOOKSHELF_PAGE_SIZE}冊)</a>`
+      : "";
+
   return layout(
     author.name,
     `
 ${searchForms()}
 <h2>${escapeHtml(author.name)}の本棚</h2>
 ${body}
+${moreLink}
 `,
   );
 }
 
-export function renderIsbnPage(result: CheckBookResult): string {
+export function renderIsbnPage(result: CheckBookResult, isTracked: boolean): string {
   const info = result.bookInfo;
+  const trackForm = isTracked
+    ? `<form action="/watchlist/remove" method="post">
+         <input type="hidden" name="bookId" value="${result.bookId}">
+         <button type="submit" class="track-btn remove">気になる本リストから削除</button>
+       </form>`
+    : `<form action="/watchlist" method="post">
+         <input type="hidden" name="isbn" value="${escapeHtml(result.isbn)}">
+         <button type="submit" class="track-btn">この本を追跡する</button>
+       </form>`;
   const body = `
 <div class="book">
   ${info?.coverImageUrl ? `<img src="${escapeHtml(info.coverImageUrl)}" alt="">` : ""}
@@ -143,6 +189,7 @@ export function renderIsbnPage(result: CheckBookResult): string {
     <div>${escapeHtml(info?.authorName ?? "著者不明")} / ${escapeHtml(info?.publisher ?? "出版社不明")} / ${escapeHtml(info?.releaseDate ?? "発売日不明")}</div>
     <div>ISBN: ${escapeHtml(result.isbn)}</div>
     ${renderHoldings(result.holdings.map((h) => ({ branchName: h.branchCode, statusLabel: h.status ?? "未確認", reserveUrl: h.reserveUrl })))}
+    ${trackForm}
   </div>
 </div>`;
 
@@ -169,6 +216,14 @@ export function renderTitleSearchPage(keyword: string, results: BookInfo[]): str
     <div class="title">${escapeHtml(book.title)}</div>
     <div>${escapeHtml(book.authorName ?? "著者不明")} / ${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     <div><a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}">この本の貸出状況を見る(ISBN: ${escapeHtml(book.isbn13)})</a></div>
+    ${
+      book.isbn13
+        ? `<form action="/watchlist" method="post">
+             <input type="hidden" name="isbn" value="${escapeHtml(book.isbn13)}">
+             <button type="submit" class="track-btn">この本を追跡する</button>
+           </form>`
+        : ""
+    }
   </div>
 </div>`,
           )

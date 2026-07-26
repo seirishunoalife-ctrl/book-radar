@@ -3,6 +3,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { addAuthor, getAuthorByName, listAuthors } from "../core/authorService.js";
 import { getAuthorBooks } from "../core/authorBooks.js";
 import { checkBook } from "../core/checkBook.js";
+import { checkNewReleasesForAuthor } from "../core/newReleaseCheck.js";
+import { addToWatchlist, removeFromWatchlist, isInWatchlist, listWatchlist } from "../core/watchlistService.js";
 import { searchBookInfoByTitle, searchBookInfoByAuthorPage } from "../core/bookInfoService.js";
 import {
   renderHomePage,
@@ -34,7 +36,7 @@ const server = createServer(async (req, res) => {
 
   try {
     if (req.method === "GET" && url.pathname === "/") {
-      sendHtml(res, 200, renderHomePage(listAuthors()));
+      sendHtml(res, 200, renderHomePage(listAuthors(), listWatchlist()));
       return;
     }
 
@@ -48,7 +50,8 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/isbn") {
       const isbn = url.searchParams.get("isbn") ?? "";
       if (!isbn) throw new Error("ISBNを入力してください。");
-      sendHtml(res, 200, renderIsbnPage(await checkBook(isbn)));
+      const result = await checkBook(isbn);
+      sendHtml(res, 200, renderIsbnPage(result, isInWatchlist(result.bookId)));
       return;
     }
 
@@ -78,8 +81,35 @@ const server = createServer(async (req, res) => {
       const name = form.get("name") ?? "";
       if (!name) throw new Error("作家名が指定されていません。");
 
-      addAuthor(name);
+      const author = addAuthor(name);
+      // 新刊チェックはバックグラウンドで実行する(多作な作家だと数分かかるため、
+      // レスポンスをブロックしない。本棚ページは結果を待たずにすぐ表示する)。
+      checkNewReleasesForAuthor(author).catch((error) => {
+        console.error(`「${author.name}」の登録時新刊チェックに失敗しました:`, error instanceof Error ? error.message : error);
+      });
       res.writeHead(302, { Location: `/author?name=${encodeURIComponent(name)}` });
+      res.end();
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/watchlist") {
+      const form = await readFormBody(req);
+      const isbn = form.get("isbn") ?? "";
+      if (!isbn) throw new Error("ISBNが指定されていません。");
+
+      await addToWatchlist(isbn);
+      res.writeHead(302, { Location: `/isbn?isbn=${encodeURIComponent(isbn)}` });
+      res.end();
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/watchlist/remove") {
+      const form = await readFormBody(req);
+      const bookId = Number(form.get("bookId") ?? "");
+      if (!bookId) throw new Error("bookIdが指定されていません。");
+
+      removeFromWatchlist(bookId);
+      res.writeHead(302, { Location: "/" });
       res.end();
       return;
     }
