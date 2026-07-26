@@ -31,3 +31,5 @@ for (const { author, newReleases } of results) {
   }
   console.log();
 }
+
+process.exit(0);
