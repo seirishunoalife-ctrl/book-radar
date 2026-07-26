@@ -251,8 +251,8 @@ export function renderAuthorPage(result: AuthorBooksResult, trackedBookIds: Set<
       ? `<p>本棚がまだ空です。登録直後は新刊チェックをバックグラウンドで実行中の場合があります。数分待ってから再読み込みしてください。</p>`
       : books
           .map(
-            (book) => `
-<div class="book">
+            (book, index) => `
+<div class="book" id="book-${index + 1}">
   ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt="" loading="lazy"></a>` : ""}
   <div class="meta">
     <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
@@ -264,10 +264,13 @@ export function renderAuthorPage(result: AuthorBooksResult, trackedBookIds: Set<
           )
           .join("");
 
-  // limitちょうど件数が返ってきた場合のみ「もっと見る」を表示する(それ以上が無ければ非表示)
+  // limitちょうど件数が返ってきた場合のみ「もっと見る」を表示する(それ以上が無ければ非表示)。
+  // リンク先に「次に追加される先頭の本」のid(#book-N)を付けることで、ページ全体が
+  // 再読み込みされても、ブラウザ標準の機能でその位置まで自動スクロールされる
+  // (JSを使わずに「一番上に戻らない」を実現する)。
   const moreLink =
     books.length === limit
-      ? `<a class="more-link" href="/author?name=${encodeURIComponent(author.name)}&limit=${limit + BOOKSHELF_PAGE_SIZE}">もっと見る(+${BOOKSHELF_PAGE_SIZE}冊)</a>`
+      ? `<a class="more-link" href="/author?name=${encodeURIComponent(author.name)}&limit=${limit + BOOKSHELF_PAGE_SIZE}#book-${limit + 1}">もっと見る(+${BOOKSHELF_PAGE_SIZE}冊)</a>`
       : "";
 
   const unregisterForm = `
