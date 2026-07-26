@@ -101,6 +101,8 @@ function toBookInfo(info: GoogleVolumeInfo): BookInfo {
     rakutenItemUrl: info.infoLink ?? null,
     itemCaption: info.description ?? null,
     genreId: null,
+    reviewCount: 0,
+    reviewAverage: null,
     source: "googlebooks",
   };
 }

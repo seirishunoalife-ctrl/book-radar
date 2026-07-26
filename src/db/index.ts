@@ -55,6 +55,11 @@ function migrate(db: DatabaseSync): void {
   if (!preferencesColumns.some((c) => c.name === "notes")) {
     db.exec("ALTER TABLE preferences ADD COLUMN notes TEXT NOT NULL DEFAULT '[]'");
   }
+
+  const statusHistoryColumns = db.prepare("PRAGMA table_info(status_history)").all() as { name: string }[];
+  if (!statusHistoryColumns.some((c) => c.name === "notified_at")) {
+    db.exec("ALTER TABLE status_history ADD COLUMN notified_at TEXT");
+  }
 }
 
 function seed(db: DatabaseSync): void {

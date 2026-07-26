@@ -49,6 +49,8 @@ function toBookInfo(summary: OpenBdSummary): BookInfo {
     rakutenItemUrl: null,
     itemCaption: null,
     genreId: null,
+    reviewCount: 0,
+    reviewAverage: null,
     source: "openbd",
   };
 }

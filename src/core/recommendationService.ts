@@ -38,6 +38,14 @@ const HITS_PER_SOURCE = 15;
 const MAX_PAGE_FOR_VARIETY = 3;
 const RECENT_WITHIN_DAYS = 90;
 
+// スコアリング(受賞 > 新刊 > 話題性(レビュー件数)の順で重み付け、複数条件の組み合わせに対応)。
+// 楽天ブックスAPIにランキングAPIの権限が無いため、reviewCountを「話題性」の代用指標として使う。
+const AWARD_SCORE = 1000;
+const RECENT_SCORE = 100;
+const POPULARITY_REASON_THRESHOLD = 20; // これ以上のレビュー件数があれば理由欄に「話題」と明記する
+const POPULARITY_SCALE = 300; // レビュー件数がこの値でボーナス満点(それ以上は頭打ち)
+const POPULARITY_MAX_BONUS = 100;
+
 // 同一プロセス内での楽天APIへの全リクエストがrakutenBooksClient側でスロットル・リトライ
 // されるため、ここでは特に追加の間隔制御はしない(呼び出し元は直列にawaitするだけでよい)。
 
@@ -126,8 +134,17 @@ interface Candidate {
   info: BookInfo;
   reason: string;
   category: RecommendationCategory;
-  /** 選出の優先度。2=受賞作一致、1=直近発売、0=それ以外(値が大きいほど優先) */
+  /** 選出の優先度スコア(値が大きいほど優先)。受賞・新刊・話題性(レビュー件数)を加点方式で合算する。 */
   priority: number;
+}
+
+/** 受賞・新刊・レビュー件数(話題性の代用指標)を加点方式で合算したスコアを返す */
+function computeScore(info: BookInfo, isAward: boolean): number {
+  let score = 0;
+  if (isAward) score += AWARD_SCORE;
+  if (isRecent(info.releaseDate)) score += RECENT_SCORE;
+  score += (Math.min(info.reviewCount, POPULARITY_SCALE) / POPULARITY_SCALE) * POPULARITY_MAX_BONUS;
+  return score;
 }
 
 /**
@@ -221,10 +238,13 @@ async function collectFromQuery(
       if (!info.isbn13) continue;
 
       const award = findMatchingAward(info.title);
-      const finalReason = award
+      let finalReason = award
         ? `受賞: ${award.awardName}${award.awardYear ? award.awardYear : ""}${award.rankLabel ? ` ${award.rankLabel}` : ""}`
         : reason;
-      const priority = award ? 2 : isRecent(info.releaseDate) ? 1 : 0;
+      if (!award && info.reviewCount >= POPULARITY_REASON_THRESHOLD) {
+        finalReason += ` ・話題(レビュー${info.reviewCount}件)`;
+      }
+      const priority = computeScore(info, award !== null);
       const resolvedCategory = category === "auto" ? categorizeByGenreId(info.genreId) : category;
 
       out.push({ info, reason: finalReason, category: resolvedCategory, priority });

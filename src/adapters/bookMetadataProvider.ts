@@ -14,6 +14,9 @@ export interface BookInfo {
   itemCaption: string | null;
   /** 楽天ブックスAPIのbooksGenreId(複数分類は"/"区切り)。おすすめ機能の集計用。楽天のみ対応。 */
   genreId: string | null;
+  /** レビュー件数・平均評価。楽天ブックスAPIのみ対応(他は0/null)。ランキングAPIの代用として「話題性」の指標に使う。 */
+  reviewCount: number;
+  reviewAverage: number | null;
   source: MetadataSource;
 }
 

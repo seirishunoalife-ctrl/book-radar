@@ -11,13 +11,16 @@
     "check-new-releases": "tsx src/cli/checkNewReleases.ts",
     "author-books": "tsx src/cli/authorBooks.ts",
     "add-award": "tsx src/cli/addAward.ts",
+    "check-watchlist-status": "tsx src/cli/checkWatchlistStatus.ts",
     "web": "tsx src/web/server.ts"
   },
   "dependencies": {
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "nodemailer": "^9.0.3"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }

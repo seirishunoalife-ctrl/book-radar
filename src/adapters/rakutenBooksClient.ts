@@ -21,6 +21,9 @@ interface RakutenBookItem {
   mediumImageUrl?: string;
   largeImageUrl?: string;
   booksGenreId?: string;
+  reviewCount?: number;
+  /** 実機確認では文字列("4.17"等)で返る */
+  reviewAverage?: string;
 }
 
 interface RakutenSearchResponse {
@@ -188,6 +191,8 @@ function toBookInfo(item: RakutenBookItem): BookInfo {
     rakutenItemUrl: item.itemUrl ?? null,
     itemCaption: item.itemCaption || null,
     genreId: item.booksGenreId || null,
+    reviewCount: item.reviewCount ?? 0,
+    reviewAverage: item.reviewAverage ? Number(item.reviewAverage) : null,
     source: "rakuten",
   };
 }

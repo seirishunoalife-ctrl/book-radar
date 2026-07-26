@@ -62,7 +62,9 @@ CREATE TABLE IF NOT EXISTS status_history (
   holding_id INTEGER NOT NULL REFERENCES library_holdings(id),
   old_status TEXT,
   new_status TEXT NOT NULL,
-  changed_at TEXT DEFAULT (datetime('now'))
+  changed_at TEXT DEFAULT (datetime('now')),
+  -- 入荷通知メールを送信済みならタイムスタンプが入る(同じ変化を二重送信しないためのフラグ)
+  notified_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS watchlist (
