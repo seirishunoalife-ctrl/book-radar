@@ -2,8 +2,7 @@ import type { Author } from "../core/authorService.js";
 import type { AuthorBooksResult } from "../core/authorBooks.js";
 import type { CheckBookResult } from "../core/checkBook.js";
 import type { WatchlistBook } from "../core/watchlistService.js";
-import type { BookInfo } from "../adapters/bookMetadataProvider.js";
-import type { AuthorSearchPage } from "../adapters/rakutenBooksClient.js";
+import type { AuthorSearchPage, TitleSearchPage } from "../adapters/rakutenBooksClient.js";
 
 export function escapeHtml(value: string): string {
   return value
@@ -14,14 +13,16 @@ export function escapeHtml(value: string): string {
 }
 
 const STYLE = `
-  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; font-size: 18px; }
+  html { font-size: 18px; }
+  body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; font-size: 1rem; }
   h1 { font-size: 1.3rem; }
   h1 a { text-decoration: none; color: inherit; }
   nav { margin-bottom: 1.5rem; }
   form.search { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
   form.search input { flex: 1; padding: 0.3rem; font-size: 1rem; }
+  form.search button { font-size: 1rem; }
   ul.authors { list-style: none; padding: 0; }
-  ul.authors li { margin-bottom: 0.3rem; }
+  ul.authors li { margin-bottom: 0.3rem; display: flex; align-items: center; gap: 0.5rem; }
   form.register { margin-top: 1rem; }
   button.register-btn { padding: 0.4rem 1rem; font-size: 1rem; }
   .already-registered { color: #2a7a2a; }
@@ -35,8 +36,9 @@ const STYLE = `
   .status.loan { background: #f5e8df; }
   .status.none { background: #f0f0f0; color: #888; }
   a.reserve-btn { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid #666; border-radius: 4px; text-decoration: none; color: inherit; font-size: 0.85rem; margin-left: 0.3rem; }
-  .track-btn { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid #666; border-radius: 4px; background: none; font-size: 0.85rem; margin-left: 0.3rem; cursor: pointer; }
+  .track-btn { display: inline-block; padding: 0.15rem 0.6rem; border: 1px solid #666; border-radius: 4px; background: none; font-size: 0.85rem; margin-left: 0.3rem; margin-top: 0.3rem; cursor: pointer; }
   .track-btn.remove { border-color: #b00; color: #b00; }
+  .unregister-btn { border: none; background: none; color: #b00; font-size: 0.85rem; cursor: pointer; padding: 0; text-decoration: underline; }
   .more-link { display: inline-block; margin-top: 1rem; }
   .hint { color: #666; font-size: 0.9rem; }
   .error { color: #b00; }
@@ -91,6 +93,26 @@ function renderHoldings(holdings: { branchName: string; statusLabel: string; res
   return `<div class="holding">${parts.join(" ")}</div>`;
 }
 
+/**
+ * 「気になる本」への登録/解除トグルボタン。未登録なら追加フォーム、登録済みなら削除フォームを出す。
+ * returnTo を渡すと、操作後にそのページへ戻る(省略時は追加後は/isbn、削除後は/)。
+ */
+function renderTrackToggle(isbn: string, bookId: number | null, isTracked: boolean, returnTo?: string): string {
+  const returnToField = returnTo ? `<input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}">` : "";
+  if (isTracked && bookId !== null) {
+    return `<form action="/watchlist/remove" method="post">
+      <input type="hidden" name="bookId" value="${bookId}">
+      ${returnToField}
+      <button type="submit" class="track-btn remove">気になる本から削除</button>
+    </form>`;
+  }
+  return `<form action="/watchlist" method="post">
+    <input type="hidden" name="isbn" value="${escapeHtml(isbn)}">
+    ${returnToField}
+    <button type="submit" class="track-btn">気になる本に登録する</button>
+  </form>`;
+}
+
 function renderWatchlistItem(book: WatchlistBook): string {
   return `
 <div class="book">
@@ -99,10 +121,7 @@ function renderWatchlistItem(book: WatchlistBook): string {
     <div class="title">${escapeHtml(book.title)}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     ${renderHoldings(book.holdings)}
-    <form action="/watchlist/remove" method="post">
-      <input type="hidden" name="bookId" value="${book.bookId}">
-      <button type="submit" class="track-btn remove">リストから削除</button>
-    </form>
+    ${renderTrackToggle(book.isbn13, book.bookId, true)}
   </div>
 </div>`;
 }
@@ -134,8 +153,9 @@ ${watchlistSection}
 
 const BOOKSHELF_PAGE_SIZE = 10;
 
-export function renderAuthorPage(result: AuthorBooksResult): string {
+export function renderAuthorPage(result: AuthorBooksResult, trackedBookIds: Set<number>): string {
   const { author, books, limit } = result;
+  const returnTo = `/author?name=${encodeURIComponent(author.name)}&limit=${limit}`;
   const body =
     books.length === 0
       ? `<p>本棚がまだ空です。登録直後は新刊チェックをバックグラウンドで実行中の場合があります。数分待ってから再読み込みしてください。</p>`
@@ -148,6 +168,7 @@ export function renderAuthorPage(result: AuthorBooksResult): string {
     <div class="title">${escapeHtml(book.title)}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     ${renderHoldings(book.holdings)}
+    ${renderTrackToggle(book.isbn13, book.bookId, trackedBookIds.has(book.bookId), returnTo)}
   </div>
 </div>`,
           )
@@ -159,6 +180,12 @@ export function renderAuthorPage(result: AuthorBooksResult): string {
       ? `<a class="more-link" href="/author?name=${encodeURIComponent(author.name)}&limit=${limit + BOOKSHELF_PAGE_SIZE}">もっと見る(+${BOOKSHELF_PAGE_SIZE}冊)</a>`
       : "";
 
+  const unregisterForm = `
+<form action="/authors/delete" method="post" style="margin-top: 1.5rem;">
+  <input type="hidden" name="name" value="${escapeHtml(author.name)}">
+  <button type="submit" class="unregister-btn">この作家の登録を解除する</button>
+</form>`;
+
   return layout(
     author.name,
     `
@@ -166,21 +193,14 @@ ${searchForms()}
 <h2>${escapeHtml(author.name)}の本棚</h2>
 ${body}
 ${moreLink}
+${unregisterForm}
 `,
   );
 }
 
 export function renderIsbnPage(result: CheckBookResult, isTracked: boolean): string {
   const info = result.bookInfo;
-  const trackForm = isTracked
-    ? `<form action="/watchlist/remove" method="post">
-         <input type="hidden" name="bookId" value="${result.bookId}">
-         <button type="submit" class="track-btn remove">気になる本リストから削除</button>
-       </form>`
-    : `<form action="/watchlist" method="post">
-         <input type="hidden" name="isbn" value="${escapeHtml(result.isbn)}">
-         <button type="submit" class="track-btn">この本を追跡する</button>
-       </form>`;
+  const returnTo = `/isbn?isbn=${encodeURIComponent(result.isbn)}`;
   const body = `
 <div class="book">
   ${info?.coverImageUrl ? `<img src="${escapeHtml(info.coverImageUrl)}" alt="">` : ""}
@@ -189,7 +209,7 @@ export function renderIsbnPage(result: CheckBookResult, isTracked: boolean): str
     <div>${escapeHtml(info?.authorName ?? "著者不明")} / ${escapeHtml(info?.publisher ?? "出版社不明")} / ${escapeHtml(info?.releaseDate ?? "発売日不明")}</div>
     <div>ISBN: ${escapeHtml(result.isbn)}</div>
     ${renderHoldings(result.holdings.map((h) => ({ branchName: h.branchCode, statusLabel: h.status ?? "未確認", reserveUrl: h.reserveUrl })))}
-    ${trackForm}
+    ${renderTrackToggle(result.isbn, result.bookId, isTracked, returnTo)}
   </div>
 </div>`;
 
@@ -203,11 +223,14 @@ ${body}
   );
 }
 
-export function renderTitleSearchPage(keyword: string, results: BookInfo[]): string {
+const TITLE_SEARCH_PAGE_SIZE = 10;
+
+export function renderTitleSearchPage(keyword: string, page: TitleSearchPage): string {
+  const { items, hits } = page;
   const body =
-    results.length === 0
+    items.length === 0
       ? `<p>該当する書籍が見つかりませんでした。</p>`
-      : results
+      : items
           .map(
             (book) => `
 <div class="book">
@@ -216,18 +239,17 @@ export function renderTitleSearchPage(keyword: string, results: BookInfo[]): str
     <div class="title">${escapeHtml(book.title)}</div>
     <div>${escapeHtml(book.authorName ?? "著者不明")} / ${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
     <div><a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}">この本の貸出状況を見る(ISBN: ${escapeHtml(book.isbn13)})</a></div>
-    ${
-      book.isbn13
-        ? `<form action="/watchlist" method="post">
-             <input type="hidden" name="isbn" value="${escapeHtml(book.isbn13)}">
-             <button type="submit" class="track-btn">この本を追跡する</button>
-           </form>`
-        : ""
-    }
+    ${book.isbn13 ? renderTrackToggle(book.isbn13, null, false) : ""}
   </div>
 </div>`,
           )
           .join("");
+
+  // hitsちょうど件数(=楽天APIの上限30も含む)返ってきた場合のみ「もっと見る」を表示
+  const moreLink =
+    items.length === hits && hits < 30
+      ? `<a class="more-link" href="/search?q=${encodeURIComponent(keyword)}&hits=${hits + TITLE_SEARCH_PAGE_SIZE}">もっと見る(+${TITLE_SEARCH_PAGE_SIZE}件)</a>`
+      : "";
 
   return layout(
     "タイトル検索結果",
@@ -235,6 +257,7 @@ export function renderTitleSearchPage(keyword: string, results: BookInfo[]): str
 ${searchForms()}
 <h2>「${escapeHtml(keyword)}」の検索結果</h2>
 ${body}
+${moreLink}
 `,
   );
 }

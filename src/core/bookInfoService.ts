@@ -1,5 +1,5 @@
 import type { BookInfo } from "../adapters/bookMetadataProvider.js";
-import { RakutenBooksClient, type AuthorSearchPage } from "../adapters/rakutenBooksClient.js";
+import { RakutenBooksClient, type AuthorSearchPage, type TitleSearchPage } from "../adapters/rakutenBooksClient.js";
 import { OpenBdClient } from "../adapters/openBdClient.js";
 
 /**
@@ -21,6 +21,11 @@ export async function fetchBookInfo(isbn: string): Promise<BookInfo | null> {
  */
 export async function searchBookInfoByTitle(keyword: string): Promise<BookInfo[]> {
   return requireRakutenClient("タイトル検索").searchByTitle(keyword);
+}
+
+/** タイトル検索・指定件数まで取得(「もっと見る」用)。楽天ブックスAPIのみ対応。 */
+export async function searchBookInfoByTitleWithHits(keyword: string, hits: number): Promise<TitleSearchPage> {
+  return requireRakutenClient("タイトル検索").searchByTitleWithHits(keyword, hits);
 }
 
 /**

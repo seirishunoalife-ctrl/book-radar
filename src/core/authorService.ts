@@ -30,6 +30,16 @@ export function listAuthors(): Author[] {
   return rows.map((row) => ({ id: row.id, name: row.name, rakutenSearchKeyword: row.rakuten_search_keyword }));
 }
 
+/**
+ * 作家の登録を解除する。紐づく本(books)のデータは削除せず、author_idをNULLにして
+ * 紐付けのみ解除する(気になる本リストに登録済みの本は、これに関わらず残る)。
+ */
+export function deleteAuthor(id: number): void {
+  const db = getDb();
+  db.prepare("UPDATE books SET author_id = NULL WHERE author_id = ?").run(id);
+  db.prepare("DELETE FROM authors WHERE id = ?").run(id);
+}
+
 export function getAuthorByName(name: string): Author | undefined {
   const db = getDb();
   const row = db.prepare("SELECT id, name, rakuten_search_keyword FROM authors WHERE name = ?").get(name) as

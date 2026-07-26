@@ -1,11 +1,11 @@
 import "dotenv/config";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { addAuthor, getAuthorByName, listAuthors } from "../core/authorService.js";
+import { addAuthor, deleteAuthor, getAuthorByName, listAuthors } from "../core/authorService.js";
 import { getAuthorBooks } from "../core/authorBooks.js";
 import { checkBook } from "../core/checkBook.js";
 import { checkNewReleasesForAuthor } from "../core/newReleaseCheck.js";
 import { addToWatchlist, removeFromWatchlist, isInWatchlist, listWatchlist } from "../core/watchlistService.js";
-import { searchBookInfoByTitle, searchBookInfoByAuthorPage } from "../core/bookInfoService.js";
+import { searchBookInfoByTitleWithHits, searchBookInfoByAuthorPage } from "../core/bookInfoService.js";
 import {
   renderHomePage,
   renderAuthorPage,
@@ -43,7 +43,8 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/author") {
       const name = url.searchParams.get("name") ?? "";
       const limit = Number(url.searchParams.get("limit") ?? "10");
-      sendHtml(res, 200, renderAuthorPage(getAuthorBooks(name, limit)));
+      const trackedBookIds = new Set(listWatchlist().map((b) => b.bookId));
+      sendHtml(res, 200, renderAuthorPage(getAuthorBooks(name, limit), trackedBookIds));
       return;
     }
 
@@ -58,7 +59,8 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/search") {
       const q = url.searchParams.get("q") ?? "";
       if (!q) throw new Error("検索キーワードを入力してください。");
-      sendHtml(res, 200, renderTitleSearchPage(q, await searchBookInfoByTitle(q)));
+      const hits = Number(url.searchParams.get("hits") ?? "10");
+      sendHtml(res, 200, renderTitleSearchPage(q, await searchBookInfoByTitleWithHits(q, hits)));
       return;
     }
 
@@ -98,7 +100,8 @@ const server = createServer(async (req, res) => {
       if (!isbn) throw new Error("ISBNが指定されていません。");
 
       await addToWatchlist(isbn);
-      res.writeHead(302, { Location: `/isbn?isbn=${encodeURIComponent(isbn)}` });
+      const returnTo = form.get("returnTo") || `/isbn?isbn=${encodeURIComponent(isbn)}`;
+      res.writeHead(302, { Location: returnTo });
       res.end();
       return;
     }
@@ -109,6 +112,19 @@ const server = createServer(async (req, res) => {
       if (!bookId) throw new Error("bookIdが指定されていません。");
 
       removeFromWatchlist(bookId);
+      const returnTo = form.get("returnTo") || "/";
+      res.writeHead(302, { Location: returnTo });
+      res.end();
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/authors/delete") {
+      const form = await readFormBody(req);
+      const name = form.get("name") ?? "";
+      if (!name) throw new Error("作家名が指定されていません。");
+
+      const author = getAuthorByName(name);
+      if (author) deleteAuthor(author.id);
       res.writeHead(302, { Location: "/" });
       res.end();
       return;

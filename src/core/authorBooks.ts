@@ -3,6 +3,7 @@ import { getAuthorByName, type Author } from "./authorService.js";
 import { getHoldingsForBook, type BookHolding } from "./bookHoldings.js";
 
 export interface AuthorBook {
+  bookId: number;
   isbn13: string;
   title: string;
   releaseDate: string | null;
@@ -46,6 +47,7 @@ export function getAuthorBooks(authorName: string, limit = 10): AuthorBooksResul
   }[];
 
   const books: AuthorBook[] = bookRows.map((row) => ({
+    bookId: row.id,
     isbn13: row.isbn13,
     title: row.title,
     releaseDate: row.release_date,

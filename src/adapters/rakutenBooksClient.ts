@@ -38,6 +38,34 @@ export interface AuthorSearchPage {
   count: number;
 }
 
+export interface TitleSearchPage {
+  items: BookInfo[];
+  /** 今回のリクエストで指定した件数上限(本棚ビューのlimitと同じ考え方) */
+  hits: number;
+  count: number;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// 同一プロセス内(Webサーバー/CLI)からの楽天APIへの全リクエストに適用する最小間隔。
+// 作家登録時のバックグラウンド新刊チェックと、フォアグラウンドでの検索操作が同時に
+// 走った場合でも、リクエストが重ならないようにするためのグローバルなスロットル。
+const MIN_REQUEST_INTERVAL_MS = 1100;
+let lastRequestAt = 0;
+
+async function throttle(): Promise<void> {
+  const wait = MIN_REQUEST_INTERVAL_MS - (Date.now() - lastRequestAt);
+  if (wait > 0) await sleep(wait);
+  lastRequestAt = Date.now();
+}
+
+// レート制限(429)に対する簡易リトライ。初回+2回まで再試行(合計最大3回)し、
+// それでも失敗する場合のみユーザーにエラーを表示する。
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 3000;
+
 /**
  * 楽天ブックス書籍検索API(https://webservice.rakuten.co.jp/documentation/books-book-search)。
  * ISBN検索・タイトル検索(部分一致的なキーワード検索)の両方に対応。表紙画像・著者名・
@@ -58,6 +86,17 @@ export class RakutenBooksClient implements TitleSearchableProvider {
   async searchByTitle(keyword: string): Promise<BookInfo[]> {
     const { items } = await this.search({ title: keyword });
     return items.map(toBookInfo);
+  }
+
+  /**
+   * タイトル検索を指定件数まで取得する(「もっと見る」によるページング用)。本棚ビューの
+   * limitと同様、件数を増やして再検索する方式(page切り替えではなく累積表示)。
+   * 楽天API側のhits上限(30)を超えないようにする。
+   */
+  async searchByTitleWithHits(keyword: string, hits: number): Promise<TitleSearchPage> {
+    const cappedHits = Math.min(hits, 30);
+    const { items, count } = await this.search({ title: keyword }, cappedHits, 1);
+    return { items: items.map(toBookInfo), hits: cappedHits, count };
   }
 
   /**
@@ -86,30 +125,38 @@ export class RakutenBooksClient implements TitleSearchableProvider {
       url.searchParams.set(key, value);
     }
 
-    const res = await fetch(url, {
-      headers: { "User-Agent": "book-radar/0.1 (personal use; book metadata lookup)" },
-    });
-    if (res.status === 429) {
-      throw new Error("楽天ブックスAPIのレート制限を超えました。しばらく待って再試行してください。");
-    }
-    if (res.status === 403) {
-      const body = await res.text();
-      if (body.includes("CLIENT_IP_NOT_ALLOWED")) {
-        throw new Error(
-          "楽天APIがこのIPアドレスからのアクセスを許可していません。Rakuten Developersダッシュボードのアプリ設定でIP許可リストにこの実行環境のIPを追加してください。",
-        );
-      }
-      throw new Error(`楽天ブックスAPIリクエストが拒否されました: HTTP 403 ${body}`);
-    }
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`楽天ブックスAPIリクエストに失敗しました: HTTP ${res.status} ${body}`);
-    }
+    for (let attempt = 1; ; attempt++) {
+      await throttle();
+      const res = await fetch(url, {
+        headers: { "User-Agent": "book-radar/0.1 (personal use; book metadata lookup)" },
+      });
 
-    const data = (await res.json()) as RakutenSearchResponse;
-    const entries = data.Items ?? data.items ?? [];
-    const items = entries.map((entry) => ("Item" in entry ? entry.Item : entry));
-    return { items, pageCount: data.pageCount ?? 1, count: data.count ?? items.length };
+      if (res.status === 429) {
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(RETRY_DELAY_MS);
+          continue;
+        }
+        throw new Error("楽天ブックスAPIへのアクセスが集中しています。しばらく待ってから再度お試しください。");
+      }
+      if (res.status === 403) {
+        const body = await res.text();
+        if (body.includes("CLIENT_IP_NOT_ALLOWED")) {
+          throw new Error(
+            "楽天APIがこのIPアドレスからのアクセスを許可していません。Rakuten Developersダッシュボードのアプリ設定でIP許可リストにこの実行環境のIPを追加してください。",
+          );
+        }
+        throw new Error(`楽天ブックスAPIリクエストが拒否されました: HTTP 403 ${body}`);
+      }
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`楽天ブックスAPIリクエストに失敗しました: HTTP ${res.status} ${body}`);
+      }
+
+      const data = (await res.json()) as RakutenSearchResponse;
+      const entries = data.Items ?? data.items ?? [];
+      const items = entries.map((entry) => ("Item" in entry ? entry.Item : entry));
+      return { items, pageCount: data.pageCount ?? 1, count: data.count ?? items.length };
+    }
   }
 }
 
