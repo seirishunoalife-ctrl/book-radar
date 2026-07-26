@@ -1,6 +1,6 @@
 import { getDb } from "../db/index.js";
 import { getAuthorByName, type Author } from "./authorService.js";
-import { getHoldingsForBook, type BookHolding } from "./bookHoldings.js";
+import { getHoldingsForBooks, type BookHolding } from "./bookHoldings.js";
 
 export interface AuthorBook {
   bookId: number;
@@ -46,13 +46,17 @@ export function getAuthorBooks(authorName: string, limit = 10): AuthorBooksResul
     cover_image_url: string | null;
   }[];
 
+  const holdingsByBook = getHoldingsForBooks(
+    db,
+    bookRows.map((row) => row.id),
+  );
   const books: AuthorBook[] = bookRows.map((row) => ({
     bookId: row.id,
     isbn13: row.isbn13,
     title: row.title,
     releaseDate: row.release_date,
     coverImageUrl: row.cover_image_url,
-    holdings: getHoldingsForBook(db, row.id),
+    holdings: holdingsByBook.get(row.id) ?? [],
   }));
 
   return { author, books, limit };

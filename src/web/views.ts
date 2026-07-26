@@ -201,7 +201,7 @@ function renderNoteForm(bookId: number, note: string | null): string {
 function renderWatchlistItem(book: WatchlistBook): string {
   return `
 <div class="book">
-  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt="" loading="lazy"></a>` : ""}
   <div class="meta">
     <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
@@ -249,7 +249,7 @@ export function renderAuthorPage(result: AuthorBooksResult, trackedBookIds: Set<
           .map(
             (book) => `
 <div class="book">
-  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt="" loading="lazy"></a>` : ""}
   <div class="meta">
     <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
@@ -329,7 +329,7 @@ export function renderTitleSearchPage(keyword: string, page: TitleSearchPage): s
           .map(
             (book) => `
 <div class="book">
-  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt="" loading="lazy"></a>` : ""}
   <div class="meta">
     <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.authorName ?? "著者不明")} / ${escapeHtml(book.releaseDate ?? "発売日不明")}</div>
@@ -447,7 +447,7 @@ function renderRecommendationItem(book: RecommendedBook, trackedBookIdsByIsbn: M
   const bookId = trackedBookIdsByIsbn.get(book.isbn13) ?? null;
   return `
 <div class="book">
-  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt=""></a>` : ""}
+  ${book.coverImageUrl ? `<a href="/isbn?isbn=${encodeURIComponent(book.isbn13)}"><img src="${escapeHtml(book.coverImageUrl)}" alt="" loading="lazy"></a>` : ""}
   <div class="meta">
     <div class="title">${bookTitleLink(book.isbn13, book.title)}</div>
     <div>${escapeHtml(book.authorName ?? "著者不明")} / ${escapeHtml(book.releaseDate ?? "発売日不明")}</div>

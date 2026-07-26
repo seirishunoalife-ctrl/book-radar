@@ -1,6 +1,6 @@
 import { getDb } from "../db/index.js";
 import { checkBook } from "./checkBook.js";
-import { getHoldingsForBook, type BookHolding } from "./bookHoldings.js";
+import { getHoldingsForBooks, type BookHolding } from "./bookHoldings.js";
 
 export interface WatchlistBook {
   bookId: number;
@@ -59,6 +59,10 @@ export function listWatchlist(): WatchlistBook[] {
     note: string | null;
   }[];
 
+  const holdingsByBook = getHoldingsForBooks(
+    db,
+    rows.map((row) => row.id),
+  );
   return rows.map((row) => ({
     bookId: row.id,
     isbn13: row.isbn13,
@@ -66,6 +70,6 @@ export function listWatchlist(): WatchlistBook[] {
     releaseDate: row.release_date,
     coverImageUrl: row.cover_image_url,
     note: row.note,
-    holdings: getHoldingsForBook(db, row.id),
+    holdings: holdingsByBook.get(row.id) ?? [],
   }));
 }

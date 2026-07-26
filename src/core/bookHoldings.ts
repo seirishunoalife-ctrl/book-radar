@@ -30,22 +30,48 @@ export function toStatusLabel(rawStatus: string): string {
 
 /** 指定した本の分館ごとの蔵書状況を取得する。全分館「蔵書なし」の場合は空配列(未入荷として扱う)。 */
 export function getHoldingsForBook(db: DatabaseSync, bookId: number): BookHolding[] {
-  const holdingRows = db
+  return getHoldingsForBooks(db, [bookId]).get(bookId) ?? [];
+}
+
+/**
+ * 複数の本の蔵書状況をまとめて1クエリで取得する(一覧表示での1冊ずつのN+1クエリを回避)。
+ * bookIdごとの結果はMapで返す(該当データが無いbookIdは空配列)。
+ */
+export function getHoldingsForBooks(db: DatabaseSync, bookIds: number[]): Map<number, BookHolding[]> {
+  const result = new Map<number, BookHolding[]>();
+  if (bookIds.length === 0) return result;
+
+  const placeholders = bookIds.map(() => "?").join(",");
+  const rows = db
     .prepare(
-      `SELECT lb.name as branch_name, lh.status, lh.opac_reserve_url
+      `SELECT lh.book_id as book_id, lb.name as branch_name, lh.status, lh.opac_reserve_url
        FROM library_holdings lh
        JOIN library_branches lb ON lb.id = lh.branch_id
-       WHERE lh.book_id = ?
-       ORDER BY lb.id`,
+       WHERE lh.book_id IN (${placeholders})
+       ORDER BY lh.book_id, lb.id`,
     )
-    .all(bookId) as { branch_name: string; status: string; opac_reserve_url: string | null }[];
+    .all(...bookIds) as { book_id: number; branch_name: string; status: string; opac_reserve_url: string | null }[];
 
-  const isHeldSomewhere = holdingRows.some((h) => h.status !== "蔵書なし");
-  if (!isHeldSomewhere) return [];
+  const byBook = new Map<number, typeof rows>();
+  for (const row of rows) {
+    const list = byBook.get(row.book_id);
+    if (list) list.push(row);
+    else byBook.set(row.book_id, [row]);
+  }
 
-  return holdingRows.map((h) => ({
-    branchName: h.branch_name,
-    statusLabel: toStatusLabel(h.status),
-    reserveUrl: h.opac_reserve_url,
-  }));
+  for (const bookId of bookIds) {
+    const holdingRows = byBook.get(bookId) ?? [];
+    const isHeldSomewhere = holdingRows.some((h) => h.status !== "蔵書なし");
+    result.set(
+      bookId,
+      isHeldSomewhere
+        ? holdingRows.map((h) => ({
+            branchName: h.branch_name,
+            statusLabel: toStatusLabel(h.status),
+            reserveUrl: h.opac_reserve_url,
+          }))
+        : [],
+    );
+  }
+  return result;
 }

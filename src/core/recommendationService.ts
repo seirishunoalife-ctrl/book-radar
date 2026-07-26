@@ -26,7 +26,15 @@ export interface RecommendedBook {
 const MAX_PER_CATEGORY = 8;
 const FREQUENT_GENRE_LIMIT = 3;
 const FREQUENT_AUTHOR_LIMIT = 3;
-const HITS_PER_SOURCE = 10;
+// 検索元(ジャンル/作家/テーマ/備考)の数だけ楽天APIへの逐次リクエストが発生し、
+// 1回あたり最低1.1秒のスロットルがかかる(rakutenBooksClient側のレート制限対策)。
+// 「更新する」の体感速度を優先し、検索元の数は絞った上でHITS_PER_SOURCEを増やして
+// 候補の多様性を維持する。
+const MAX_GENRES = 4;
+const MAX_AUTHORS = 4;
+const MAX_THEMES = 2;
+const MAX_NOTES = 2;
+const HITS_PER_SOURCE = 15;
 const MAX_PAGE_FOR_VARIETY = 3;
 const RECENT_WITHIN_DAYS = 90;
 
@@ -133,10 +141,10 @@ export async function generateRecommendations(): Promise<RecommendedBook[]> {
   const frequentGenreIds = getFrequentGenreIds(FREQUENT_GENRE_LIMIT);
   const frequentAuthors = getFrequentAuthors(FREQUENT_AUTHOR_LIMIT);
 
-  const genreIds = [...new Set([...prefs.favoriteGenreIds, ...frequentGenreIds])].slice(0, 6);
-  const authors = [...new Set([...prefs.favoriteAuthors, ...frequentAuthors])].slice(0, 6);
-  const themes = prefs.businessThemes.slice(0, 3);
-  const notes = prefs.notes.slice(0, 3);
+  const genreIds = [...new Set([...prefs.favoriteGenreIds, ...frequentGenreIds])].slice(0, MAX_GENRES);
+  const authors = [...new Set([...prefs.favoriteAuthors, ...frequentAuthors])].slice(0, MAX_AUTHORS);
+  const themes = prefs.businessThemes.slice(0, MAX_THEMES);
+  const notes = prefs.notes.slice(0, MAX_NOTES);
 
   if (genreIds.length === 0 && authors.length === 0 && themes.length === 0 && notes.length === 0) {
     setCachedRecommendations([]);
